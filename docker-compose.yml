@@ -59,9 +59,11 @@ services:
       - app-network
 
   ai-service:
-    build:
-      context: ./ai-service
+    image: python:3.11-slim
     restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./ai-service:/app
     ports:
       - "8000:8000"
     environment:
@@ -70,6 +72,7 @@ services:
       - LLM_MODEL=${LLM_MODEL:-qwen3.5:7b}
       - LLM_API_KEY=${LLM_API_KEY:-}
       - DATABASE_URL=postgres://avito:avito@postgres:5432/aibuddy?sslmode=disable
+    command: tail -f /dev/null
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,13 +82,16 @@ services:
       - app-network
 
   frontend:
-    build:
-      context: ./frontend
+    image: node:20-alpine
     restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
     ports:
       - "3000:3000"
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:8080}
+    command: tail -f /dev/null
     depends_on:
       - backend
     networks:
