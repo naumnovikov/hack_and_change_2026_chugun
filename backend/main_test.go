@@ -8,6 +8,28 @@ import (
 	"testing"
 )
 
+func TestLoadConfig(t *testing.T) {
+	t.Run("Переменные окружения не заданы (дефолты)", func(t *testing.T) {
+		t.Setenv("DATABASE_URL", "")
+		t.Setenv("PORT", "")
+
+		port := loadConfig()
+		if port != "8080" {
+			t.Errorf("ожидался дефолтный порт 8080, получен %s", port)
+		}
+	})
+
+	t.Run("Переменные окружения заданы", func(t *testing.T) {
+		t.Setenv("DATABASE_URL", "postgres://avito:avito@postgres:5432/aibuddy?sslmode=disable")
+		t.Setenv("PORT", "9090")
+
+		port := loadConfig()
+		if port != "9090" {
+			t.Errorf("ожидался порт 9090, получен %s", port)
+		}
+	})
+}
+
 func TestAPI(t *testing.T) {
 	mux := setupRouter()
 
@@ -26,7 +48,7 @@ func TestAPI(t *testing.T) {
 	})
 
 	t.Run("POST /api/mock/access-request (успех и ошибка валидации)", func(t *testing.T) {
-		body := bytes.NewBufferString(`{"service_name":"Jira"}`)
+		body := bytes.NewBufferString(`{"employee_id":"emp-001","service_name":"Jira"}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/mock/access-request", body)
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -39,7 +61,6 @@ func TestAPI(t *testing.T) {
 			t.Errorf("некорректный ответ: %+v, err: %v", resp, err)
 		}
 
-		// Пустой payload -> 400
 		badReq := httptest.NewRequest(http.MethodPost, "/api/mock/access-request", bytes.NewBufferString(`{}`))
 		badRR := httptest.NewRecorder()
 		mux.ServeHTTP(badRR, badReq)
@@ -49,7 +70,7 @@ func TestAPI(t *testing.T) {
 	})
 
 	t.Run("POST /api/mock/message (успех и ошибка валидации)", func(t *testing.T) {
-		body := bytes.NewBufferString(`{"recipient_id":"emp-001","text":"Привет, кто на кнопке?"}`)
+		body := bytes.NewBufferString(`{"sender_id":"emp-002","recipient_id":"emp-001","text":"Привет, кто на кнопке?"}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/mock/message", body)
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -62,7 +83,6 @@ func TestAPI(t *testing.T) {
 			t.Errorf("некорректный ответ: %+v, err: %v", resp, err)
 		}
 
-		// Ошибка валидации -> 400
 		badReq := httptest.NewRequest(http.MethodPost, "/api/mock/message", bytes.NewBufferString(`{"recipient_id":"emp-001"}`))
 		badRR := httptest.NewRecorder()
 		mux.ServeHTTP(badRR, badReq)
@@ -84,7 +104,6 @@ func TestAPI(t *testing.T) {
 			t.Errorf("некорректный ответ: %+v, err: %v", resp, err)
 		}
 
-		// Без параметра service_name -> 400
 		badReq := httptest.NewRequest(http.MethodGet, "/api/mock/employee", nil)
 		badRR := httptest.NewRecorder()
 		mux.ServeHTTP(badRR, badReq)
@@ -93,7 +112,7 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
-	t.Run("GET /api/mock/employee/{id}", func(t *testing.T) {
+	t.Run("GET /api/mock/employee/{id} (успех и ошибка валидации)", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/mock/employee/emp-777", nil)
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -104,6 +123,13 @@ func TestAPI(t *testing.T) {
 		var resp EmployeeResponse
 		if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil || resp.EmployeeID != "emp-777" {
 			t.Errorf("ожидался employee_id 'emp-777', получен '%s' (err: %v)", resp.EmployeeID, err)
+		}
+
+		badReq := httptest.NewRequest(http.MethodGet, "/api/mock/employee/%20", nil)
+		badRR := httptest.NewRecorder()
+		mux.ServeHTTP(badRR, badReq)
+		if badRR.Code != http.StatusBadRequest {
+			t.Errorf("ожидался статус 400 при пустом id, получен %d", badRR.Code)
 		}
 	})
 }
