@@ -1,0 +1,65 @@
+# ===== Окружение и секреты =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===== Go =====
+backend/bin/
+backend/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+coverage.html
+
+# ===== Node / React / Vite =====
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Ollama / LLM модели =====
+# Веса моделей (несколько ГБ) не коммитим — они скачиваются через `ollama pull`
+.ollama/
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# ===== Docker =====
+*.log
+postgres-data/
+pgdata/
+redis-data/
+
+# ===== IDE и ОС =====
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
