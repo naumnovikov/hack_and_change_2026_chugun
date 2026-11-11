@@ -13,16 +13,15 @@ jobs:
       run:
         working-directory: ./backend
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-        cache-dependency-path: ./backend/go.sum
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
 
-    - name: Run Tests and Check Coverage
-      run: |
-        go test -v -coverprofile=coverage.out ./...
-        go tool cover -func=coverage.out
+      - name: Run Tests and Check Coverage
+        run: |
+          go test -v -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
