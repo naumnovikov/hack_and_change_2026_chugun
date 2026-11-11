@@ -54,6 +54,13 @@ h1 { margin: 0; font-size: 20px; letter-spacing: -.5px; }
   padding: 40px 24px;
 }
 .empty-state { width: 100%; margin: auto; text-align: center; }
+.message-list { display: flex; flex-direction: column; gap: 16px; width: 100%; margin: 0; padding: 0; list-style: none; }
+.message { max-width: 80%; padding: 14px 18px; border-radius: 18px; overflow-wrap: anywhere; }
+.message-user { align-self: flex-end; background: #eef3fd; }
+.message-assistant { align-self: flex-start; background: #f3f4f5; }
+.message-author { font-size: 11px; font-weight: 600; color: #555d68; }
+.message p { margin: 6px 0 0; white-space: pre-wrap; line-height: 1.6; font-size: 15px; }
+.typing-status { margin: 0; padding: 0 40px 8px; color: #666d76; font-size: 12px; }
 .welcome-mark {
   display: grid;
   place-items: center;
@@ -82,6 +89,9 @@ textarea { flex: 1; min-width: 0; min-height: 54px; max-height: 160px; resize: v
 textarea::placeholder { color: #767d87; }
 .send-button { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 11px; background: #e9ecf0; color: #626b77; font-size: 13px; font-weight: 600; }
 .send-button:disabled { cursor: not-allowed; }
+.send-button:not(:disabled) { background: #285aa6; color: #fff; cursor: pointer; }
+.send-button:not(:disabled):hover { background: #214b8b; }
+.send-button:focus-visible { outline: 3px solid #4074c8; outline-offset: 3px; }
 .send-button svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .composer-hint { margin: 12px 0 0; text-align: center; color: #717985; font-size: 11px; line-height: 1.5; }
 .chat-footer { display: flex; justify-content: space-between; gap: 16px; padding: 16px 40px; border-top: 1px solid #edf0f2; font-size: 10px; color: #717985; letter-spacing: .3px; }
@@ -93,6 +103,8 @@ textarea::placeholder { color: #767d87; }
   .chat-header { padding: 18px 16px; }
   .subtitle { font-size: 11px; }
   .conversation { padding: 28px 20px; }
+  .message { max-width: 90%; }
+  .typing-status { padding-inline: 20px; }
   .welcome-mark { width: 64px; height: 64px; margin-bottom: 24px; border-radius: 22px; }
   .eyebrow { font-size: 9px; letter-spacing: 1.2px; }
   .welcome-text { font-size: 14px; }
