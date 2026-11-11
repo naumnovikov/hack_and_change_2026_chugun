@@ -17,6 +17,10 @@ AI-buddy помогает стажёрам быстрее адаптироват
 
 ## 🛠 Технологический стек
 
+Frontend: добавлена основа Vite + React + TypeScript с Zustand и Zod.
+Локальный запуск и проверки описаны в [`frontend/README.md`](./frontend/README.md).
+Пользовательский чат ещё не реализован; Frontend в Docker Compose пока остаётся заглушкой.
+
 *   **Backend:** Go (мок-сервисы, интеграции)
 *   **Frontend:** React + TypeScript + Vite + Zustand
 *   **AI Service:** Python + FastAPI + Ollama (локальная LLM Qwen)

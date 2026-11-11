@@ -1,0 +1,32 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2937;
+  background: #f5f6f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+main {
+  max-width: 640px;
+  margin: 12vh auto;
+  padding: 24px;
+}
+
+h1 {
+  font-size: 40px;
+  margin: 16px 0;
+}
+
+p {
+  line-height: 1.6;
+}
+
+.team {
+  color: #4b5563;
+  font-size: 14px;
+}
