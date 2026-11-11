@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  # 1. База данных (векторная для RAG + обычные таблицы)
   postgres:
-    image: pgvector/pgvector:pg16
+    image: postgres:15-alpine
+    restart: always
     environment:
       POSTGRES_USER: avito
       POSTGRES_PASSWORD: avito
@@ -12,71 +12,30 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks:
-      - aibuddy-net
 
-  # 2. Локальная LLM
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - aibuddy-net
-
-  # 3. Бэкенд (пока просто заглушка, чтобы контейнер не падал)
   backend:
     image: golang:1.22-alpine
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - ./backend:/app
-    # Заглушка: как только напишете код, замените на: command: go run main.go
-    command: tail -f /dev/null 
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://avito:avito@postgres:5432/aibuddy?sslmode=disable
+    command: go run .
     depends_on:
       - postgres
-      - ollama
-    environment:
-      - DB_HOST=postgres
-      - OLLAMA_HOST=http://ollama:11434
-    networks:
-      - aibuddy-net
 
-  # 4. Фронтенд
-  frontend:
-    image: node:20-alpine
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-    # Заглушка: как только сделаете npm create vite, замените на: command: npm run dev -- --host
-    command: tail -f /dev/null
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
     ports:
-      - "5173:5173"
-    networks:
-      - aibuddy-net
-
-  # 5. AI-сервис
-  ai-service:
-    image: python:3.11-slim
-    working_dir: /app
+      - "11434:11434"
     volumes:
-      - ./ai-service:/app
-    # Заглушка: как только напишете FastAPI, замените на: command: uvicorn main:app --host 0.0.0.0 --port 8000
-    command: tail -f /dev/null
-    ports:
-      - "8000:8000"
-    environment:
-      - DB_HOST=postgres
-      - OLLAMA_HOST=http://ollama:11434
-    networks:
-      - aibuddy-net
-
-networks:
-  aibuddy-net:
-    driver: bridge
+      - ollamadata:/root/.ollama
 
 volumes:
   pgdata:
-  ollama-data:
+  ollamadata:
