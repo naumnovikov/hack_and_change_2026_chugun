@@ -1,17 +1,33 @@
 version: '3.8'
 
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  ollamadata:
+
 services:
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg16
     restart: always
     environment:
-      POSTGRES_USER: avito
-      POSTGRES_PASSWORD: avito
-      POSTGRES_DB: aibuddy
+      POSTGRES_USER: ${POSTGRES_USER:-avito}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-avito}
+      POSTGRES_DB: ${POSTGRES_DB:-aibuddy}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avito -d aibuddy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     image: golang:1.22-alpine
@@ -24,9 +40,13 @@ services:
     environment:
       - PORT=8080
       - DATABASE_URL=postgres://avito:avito@postgres:5432/aibuddy?sslmode=disable
+      - AI_SERVICE_URL=http://ai-service:8000
     command: go run .
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
 
   ollama:
     image: ollama/ollama
@@ -35,7 +55,38 @@ services:
       - "11434:11434"
     volumes:
       - ollamadata:/root/.ollama
+    networks:
+      - app-network
 
-volumes:
-  pgdata:
-  ollamadata:
+  ai-service:
+    build:
+      context: ./ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://ollama:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-qwen3.5:7b}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - DATABASE_URL=postgres://avito:avito@postgres:5432/aibuddy?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8080}
+    depends_on:
+      - backend
+    networks:
+      - app-network
