@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: Chugun AI-Buddy Backend API
+  description: Контракты бэкенда и мок-сервисов для хакатона Hack&Change 2026
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local & Docker Backend
+
+paths:
+  /health:
+    get:
+      summary: Healthcheck сервиса
+      operationId: getHealth
+      responses:
+        '200':
+          description: Сервис жив
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/mock/access-request:
+    post:
+      summary: Создание заявки на доступ к системе/ресурсу
+      operationId: createAccessRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessRequestPayload'
+      responses:
+        '200':
+          description: Заявка успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessRequestResponse'
+
+  /api/mock/message:
+    post:
+      summary: Отправка сообщения коллеге (Сценарий "Кто на кнопке?")
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessagePayload'
+      responses:
+        '200':
+          description: Сообщение отправлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+
+  /api/mock/employee/{id}:
+    get:
+      summary: Получение карточки сотрудника по ID
+      operationId: getEmployeeById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Данные о сотруднике
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    AccessRequestPayload:
+      type: object
+      required: [employee_id, system_name]
+      properties:
+        employee_id:
+          type: string
+        system_name:
+          type: string
+
+    AccessRequestResponse:
+      type: object
+      required: [request_id, status]
+      properties:
+        request_id:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+
+    SendMessagePayload:
+      type: object
+      required: [recipient_id, text]
+      properties:
+        sender_id:
+          type: string
+        recipient_id:
+          type: string
+        text:
+          type: string
+
+    SendMessageResponse:
+      type: object
+      required: [message_id, status]
+      properties:
+        message_id:
+          type: string
+        status:
+          type: string
+
+    EmployeeResponse:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
