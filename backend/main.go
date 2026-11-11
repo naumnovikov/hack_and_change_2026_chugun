@@ -124,7 +124,7 @@ func setupRouter() *http.ServeMux {
 	return mux
 }
 
-func main() {
+func loadConfig() string {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		log.Println("WARN: DATABASE_URL не задан, работаем без БД")
@@ -136,11 +136,12 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	return port
+}
 
+func main() {
+	port := loadConfig()
 	mux := setupRouter()
-
 	log.Printf("🚀 Backend server запускается на порту %s...", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
-		log.Fatalf("Критическая ошибка сервера: %v", err)
-	}
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
