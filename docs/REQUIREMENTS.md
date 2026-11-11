@@ -83,7 +83,7 @@
     *   Командное владение решением — **5%**
 
 ## 10. Полезные источники
-*   [Чек-лист стажёра Авито (Google Sheets)](https://docs.google.com/spreadsheets/d/1qkFqQzfSZ2jEz57jBSmq7rukDXi_tRfWohgemViceVO/edit?usp=sharing)
+*   [Чек-лист стажёра Авито (Google Sheets)](https://docs.google.com/spreadsheets/d/1qKFqOzfSZ2jEz57jBSmq7rukDXi_tRfWohgemViceV0/edit?usp=sharing)
 *   [AvitoTech Playbook (GitHub)](https://github.com/avito-tech/playbook)
 *   [Блог AvitoTech на Хабре](https://habr.com/ru/companies/avito/articles/)
 *   [Материалы о технологиях Авито](https://avito.tech/)

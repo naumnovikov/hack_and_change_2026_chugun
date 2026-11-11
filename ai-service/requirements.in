@@ -1,0 +1,9 @@
+# Direct dependencies. requirements.txt pins the complete resolved environment.
+fastapi
+pydantic
+uvicorn
+psycopg[binary]
+openai
+pytest
+pytest-cov
+httpx
