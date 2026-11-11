@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: AI-buddy AI service skeleton
+  version: 0.1.0
+  description: Temporary AI transport contract; no RAG, LLM or tool execution.
+servers:
+  - url: http://localhost:8000
+paths:
+  /chat:
+    post:
+      summary: Validate a message and return a fixed reply
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 8000
+                  description: Length is checked after trimming whitespace.
+      responses:
+        '200':
+          description: Fixed skeleton response
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reply]
+                properties:
+                  reply: {type: string, const: 'Hello from AI'}
+        '422':
+          description: Invalid JSON, missing/invalid message or extra fields
+        '405':
+          description: Unsupported HTTP method
