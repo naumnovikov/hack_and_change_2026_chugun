@@ -7,7 +7,7 @@
 ## 📂 Текущее состояние репозитория (на 11.10)
 - Создана структура папок: `backend/`, `frontend/`, `ai-service/`, `specs/`, `prompts/`, `docs/`.
 - В корне есть: `LICENSE`, `.gitignore`, `.env.example`.
-- В `docs/` лежат: `REQUIREMENTS.md`, `HACKATHON_FAQ.md`, `TEAM_RULES.md`, `PROJECT_CONTEXT.md` (этот файл).
+- В `docs/` лежат: `REQUIREMENTS.md`, `HACKATHON_FAQ.md`, `TEAM_RULES.md`, `PROJECT_CONTEXT.md` (этот файл), `CJM.md`, `METRICS.md`.
 - **Код еще не написан.** Папки пусты.
 
 ## 🎯 Что мы строим
@@ -83,6 +83,8 @@
 - 📋 **[REQUIREMENTS.md](./REQUIREMENTS.md)** — полный текст ТЗ от Авито.
 - 💬 **[HACKATHON_FAQ.md](./HACKATHON_FAQ.md)** — ответы кейсодавателя на вопросы команд.
 - 🤝 **[TEAM_RULES.md](./TEAM_RULES.md)** — внутренние правила и договоренности команды.
+- 🗺 **[CJM.md](./CJM.md)** — карта пути стажёра (3 базовых сценария).
+- 📈 **[METRICS.md](./METRICS.md)** — гипотеза (DIVE→CREATE→IMPACT) и метрики проекта.
 
 ## 💬 Как со мной работать (инструкции для LLM)
 1. **Перед генерацией кода** — проверь `docs/HACKATHON_FAQ.md` и `specs/`. Если противоречие — спроси, а не догадывайся.
