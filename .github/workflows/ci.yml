@@ -33,7 +33,7 @@ jobs:
           path: backend/coverage.out
 
   frontend:
-    name: Frontend tests
+    name: Frontend checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -54,6 +54,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build
 
       - name: Run tests
         run: npm run test -- --run
