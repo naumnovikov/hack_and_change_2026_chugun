@@ -54,7 +54,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 func createAccessRequestHandler(w http.ResponseWriter, r *http.Request) {
 	var payload AccessRequestPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.ServiceName) == "" {
-		http.Error(w, `{"error":"service_name is required"}`, http.StatusBadRequest)
+		apiError(w, http.StatusBadRequest, "invalid_request", "service_name is required")
 		return
 	}
 
@@ -71,7 +71,7 @@ func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil ||
 		strings.TrimSpace(payload.RecipientID) == "" ||
 		strings.TrimSpace(payload.Text) == "" {
-		http.Error(w, `{"error":"recipient_id and text are required"}`, http.StatusBadRequest)
+		apiError(w, http.StatusBadRequest, "invalid_request", "recipient_id and text are required")
 		return
 	}
 
@@ -85,7 +85,7 @@ func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
 func getEmployeeByServiceHandler(w http.ResponseWriter, r *http.Request) {
 	serviceName := strings.TrimSpace(r.URL.Query().Get("service_name"))
 	if serviceName == "" {
-		http.Error(w, `{"error":"service_name query param is required"}`, http.StatusBadRequest)
+		apiError(w, http.StatusBadRequest, "invalid_request", "service_name query param is required")
 		return
 	}
 
@@ -101,7 +101,7 @@ func getEmployeeByServiceHandler(w http.ResponseWriter, r *http.Request) {
 func getEmployeeByIDHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.PathValue("id"))
 	if id == "" {
-		http.Error(w, `{"error":"id path param is required"}`, http.StatusBadRequest)
+		apiError(w, http.StatusBadRequest, "invalid_request", "id path param is required")
 		return
 	}
 
@@ -117,6 +117,7 @@ func getEmployeeByIDHandler(w http.ResponseWriter, r *http.Request) {
 func setupRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)
+	mux.HandleFunc("POST /api/chat", chatHandler(&http.Client{Timeout: 30 * time.Second}, os.Getenv("AI_SERVICE_URL")))
 	mux.HandleFunc("POST /api/mock/access-request", createAccessRequestHandler)
 	mux.HandleFunc("POST /api/mock/message", sendMessageHandler)
 	mux.HandleFunc("GET /api/mock/employee", getEmployeeByServiceHandler)
@@ -141,7 +142,13 @@ func loadConfig() string {
 
 func main() {
 	port := loadConfig()
-	mux := setupRouter()
+	store, err := openStore(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer store.DB.Close()
+	mux := persistentActions(store)
+	mux.HandleFunc("POST /api/chat", chatHandler(&http.Client{Timeout: 30 * time.Second}, os.Getenv("AI_SERVICE_URL")))
 	log.Printf("🚀 Backend server запускается на порту %s...", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
