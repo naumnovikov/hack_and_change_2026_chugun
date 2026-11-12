@@ -1,28 +1,75 @@
-"""Day-one AI service skeleton; no LLM calls or corporate actions yet."""
-
-from typing import Annotated
-
-from fastapi import FastAPI
-from pydantic import BaseModel, ConfigDict, StringConstraints
-
-
-app = FastAPI(title="AI-buddy AI Service", version="0.1.0")
-
-
-class ChatRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    message: Annotated[
-        str,
-        StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=8000),
-    ]
+"""Public-corpus chat and an internal AI-only tool proposal protocol."""
+from functools import lru_cache
+import hmac
+from fastapi import Depends, FastAPI, Header
+from fastapi.responses import JSONResponse
+from pydantic import HttpUrl
+from agent import Agent, AgentAnswer, AgentRequest, AgentToolCall, StrictModel, Text
+from errors import AIError
+from providers import Provider
+from rag import RAG
+from repository import Repository
+from settings import Settings
 
 
-class ChatResponse(BaseModel):
-    reply: str
+app = FastAPI(title="AI-buddy AI Service", version="1.0.0")
 
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
-    """Validate a message and return a fixed response for the initial smoke test."""
-    return ChatResponse(reply="Hello from AI")
+class ChatRequest(StrictModel):
+    message: Text
+
+
+class Source(StrictModel):
+    title: Text
+    url: HttpUrl
+
+
+class ChatResponse(StrictModel):
+    reply: Text
+    sources: list[Source]
+
+
+class ErrorResponse(StrictModel):
+    code: str
+    error: str
+
+
+ERRORS = {status: {"model": ErrorResponse} for status in (403, 502, 503, 504)}
+
+
+@lru_cache
+def get_services():
+    config = Settings.from_env()
+    provider = Provider(config)
+    rag = RAG(provider, Repository(config))
+    return config, rag, Agent(provider, rag)
+
+
+@app.exception_handler(AIError)
+async def ai_error_handler(request, exc):
+    return JSONResponse(status_code=exc.status, content={"code": exc.code, "error": exc.message})
+
+
+@app.get("/health")
+def health():
+    """Liveness only, deliberately does not claim model/database readiness."""
+    return {"status": "ok"}
+
+
+@app.post("/chat", response_model=ChatResponse, responses=ERRORS)
+def chat(request: ChatRequest, services=Depends(get_services)):
+    return services[1].answer(request.message)
+
+
+def require_internal(x_ai_internal_token: str = Header(default=""), services=Depends(get_services)):
+    expected = services[0].ai_internal_token
+    if len(expected) < 32:
+        raise AIError("agent_unconfigured", "Внутренний агентский API не настроен")
+    if not hmac.compare_digest(x_ai_internal_token.encode(), expected.encode()):
+        raise AIError("forbidden", "Доступ запрещён", 403)
+
+
+@app.post("/agent/step", response_model=AgentAnswer | AgentToolCall, responses=ERRORS,
+          dependencies=[Depends(require_internal)])
+def agent_step(request: AgentRequest, services=Depends(get_services)):
+    return services[2].step(request)

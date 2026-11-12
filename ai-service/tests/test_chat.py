@@ -1,13 +1,19 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
+from main import app, get_services
+from settings import Settings
+from unittest.mock import Mock
 
 
 @pytest.fixture
 def client():
+    rag = Mock()
+    rag.answer.return_value = {"reply": "Проверочный ответ", "sources": []}
+    app.dependency_overrides[get_services] = lambda: (Settings(), rag, Mock())
     with TestClient(app) as test_client:
         yield test_client
+    app.dependency_overrides.clear()
 
 
 @pytest.mark.parametrize("message", ["Привет", "  Нужен доступ к Jira  ", "a" * 8000])
@@ -15,7 +21,7 @@ def test_chat_accepts_message(client, message):
     response = client.post("/chat", json={"message": message})
 
     assert response.status_code == 200
-    assert response.json() == {"reply": "Hello from AI"}
+    assert response.json() == {"reply": "Проверочный ответ", "sources": []}
 
 
 @pytest.mark.parametrize(

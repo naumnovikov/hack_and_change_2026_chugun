@@ -72,6 +72,12 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL:-http://ollama:11434/v1}
       - LLM_MODEL=${LLM_MODEL:-qwen3.5:4b}
       - LLM_API_KEY=${LLM_API_KEY:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-embeddinggemma}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-768}
+      - TIMEOUT_SECONDS=${TIMEOUT_SECONDS:-180}
+      - RAG_MAX_DISTANCE=${RAG_MAX_DISTANCE:-0.35}
+      - RAG_TOP_K=${RAG_TOP_K:-3}
+      - AI_INTERNAL_TOKEN=${AI_INTERNAL_TOKEN:-}
       - DATABASE_URL=postgres://avito:avito@postgres:5432/aibuddy?sslmode=disable
     depends_on:
       postgres:

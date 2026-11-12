@@ -1,39 +1,665 @@
-openapi: 3.1.0
-info:
-  title: AI-buddy AI service skeleton
-  version: 0.1.0
-  description: Temporary AI transport contract; no RAG, LLM or tool execution.
-servers:
-  - url: http://localhost:8000
-paths:
-  /chat:
-    post:
-      summary: Validate a message and return a fixed reply
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [message]
-              properties:
-                message:
-                  type: string
-                  minLength: 1
-                  maxLength: 8000
-                  description: Length is checked after trimming whitespace.
-      responses:
-        '200':
-          description: Fixed skeleton response
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [reply]
-                properties:
-                  reply: {type: string, const: 'Hello from AI'}
-        '422':
-          description: Invalid JSON, missing/invalid message or extra fields
-        '405':
-          description: Unsupported HTTP method
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI-buddy AI Service",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "description": "Liveness only, deliberately does not claim model/database readiness.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat": {
+      "post": {
+        "summary": "Chat",
+        "operationId": "chat_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/step": {
+      "post": {
+        "summary": "Agent Step",
+        "operationId": "agent_step_agent_step_post",
+        "parameters": [
+          {
+            "name": "x-ai-internal-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Ai-Internal-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AgentAnswer"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AgentToolCall"
+                    }
+                  ],
+                  "title": "Response Agent Step Agent Step Post"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentAnswer": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "answer",
+            "title": "Kind"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "unknown",
+              "error",
+              "draft",
+              "limit",
+              "denied",
+              "clarification",
+              "confirmation_required"
+            ],
+            "title": "State"
+          },
+          "reply": {
+            "type": "string",
+            "title": "Reply"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "state",
+          "reply",
+          "sources"
+        ],
+        "title": "AgentAnswer"
+      },
+      "AgentRequest": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Request Id"
+          },
+          "conversation_id": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Conversation Id"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "user_context": {
+            "$ref": "#/components/schemas/UserContext"
+          },
+          "tool_steps": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tool Steps",
+            "default": 0
+          },
+          "allowed_services": {
+            "items": {
+              "type": "string",
+              "maxLength": 8000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Allowed Services"
+          },
+          "allowed_recipients": {
+            "items": {
+              "type": "string",
+              "maxLength": 8000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Allowed Recipients"
+          },
+          "explicit_access_request": {
+            "type": "boolean",
+            "title": "Explicit Access Request",
+            "default": false
+          },
+          "confirmed_message": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageArgs"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ToolResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "conversation_id",
+          "message",
+          "user_context"
+        ],
+        "title": "AgentRequest"
+      },
+      "AgentToolCall": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "tool_call",
+            "title": "Kind"
+          },
+          "state": {
+            "type": "string",
+            "const": "proposed",
+            "title": "State"
+          },
+          "reply": {
+            "type": "string",
+            "title": "Reply"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "tool_call": {
+            "$ref": "#/components/schemas/ProposedTool"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "state",
+          "reply",
+          "sources",
+          "tool_call"
+        ],
+        "title": "AgentToolCall"
+      },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
+      "ChatResponse": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Reply"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reply",
+          "sources"
+        ],
+        "title": "ChatResponse"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MessageArgs": {
+        "properties": {
+          "recipient_id": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Recipient Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "recipient_id",
+          "text"
+        ],
+        "title": "MessageArgs"
+      },
+      "ProposedTool": {
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "title": "Call Id"
+          },
+          "name": {
+            "type": "string",
+            "enum": [
+              "create_access_request",
+              "find_employee",
+              "send_message"
+            ],
+            "title": "Name"
+          },
+          "arguments": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceArgs"
+              },
+              {
+                "$ref": "#/components/schemas/MessageArgs"
+              }
+            ],
+            "title": "Arguments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "call_id",
+          "name",
+          "arguments"
+        ],
+        "title": "ProposedTool"
+      },
+      "ServiceArgs": {
+        "properties": {
+          "service_name": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Service Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "service_name"
+        ],
+        "title": "ServiceArgs"
+      },
+      "Source": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "Source"
+      },
+      "ToolResult": {
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Call Id"
+          },
+          "name": {
+            "type": "string",
+            "enum": [
+              "create_access_request",
+              "find_employee",
+              "send_message"
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error",
+              "unknown"
+            ],
+            "title": "Status"
+          },
+          "result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Result"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "call_id",
+          "name",
+          "status"
+        ],
+        "title": "ToolResult"
+      },
+      "UserContext": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "User Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Intern",
+              "Mentor"
+            ],
+            "title": "Role"
+          },
+          "team_id": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Team Id"
+          },
+          "onboarding_week": {
+            "type": "integer",
+            "maximum": 52.0,
+            "minimum": 1.0,
+            "title": "Onboarding Week"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "team_id",
+          "onboarding_week"
+        ],
+        "title": "UserContext"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
