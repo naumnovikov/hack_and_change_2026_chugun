@@ -71,8 +71,8 @@ Python вернёт предложение create_access_request, но не со
 
 ## Оставшиеся решения Backend
 
-- Общий timeout сейчас 30 с. Проверенный запрос уложился, но это не гарантирует
-  холодный старт CPU. Сделать timeout конфигурируемым с учётом embedding+LLM.
+- В объединённом Backend общий timeout уже настраивается через AI_REQUEST_TIMEOUT
+  (180s по умолчанию, 1s..10m). Подбирать его с учётом embedding+LLM и холодного CPU.
 - Сопоставить request_id/call_id с существующим X-Request-ID и состоянием Go.
 - Утвердить статусы заявок, TTL подтверждения и публичный JSON/SSE-протокол.
 - Реализовать trusted user context/IAM перед включением agent endpoint для UI.

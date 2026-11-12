@@ -9,6 +9,47 @@ servers:
     description: Local & Docker Backend
 
 paths:
+  /api/chat:
+    post:
+      summary: JSON chat proxy to AI service (intermediate contract before SSE)
+      operationId: chat
+      parameters:
+        - in: header
+          name: X-Request-ID
+          required: true
+          description: New unique key for each message; reuse the same key and body on retry.
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{8,128}$'
+        - in: cookie
+          name: demo_chat
+          description: Opaque server-generated demo conversation cookie; never a corporate identity.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: AI reply and optional sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/ChatError'
+        '502':
+          $ref: '#/components/responses/ChatError'
+        '503':
+          $ref: '#/components/responses/ChatError'
+        '409':
+          $ref: '#/components/responses/ChatError'
+        '504':
+          $ref: '#/components/responses/ChatError'
+
   /health:
     get:
       summary: Healthcheck сервиса
@@ -94,7 +135,53 @@ paths:
                 $ref: '#/components/schemas/EmployeeResponse'
 
 components:
+  responses:
+    ChatError:
+      description: JSON error with stable code; no upstream diagnostics
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    ChatRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: Whitespace is trimmed before checking length.
+    ChatResponse:
+      type: object
+      required: [reply]
+      properties:
+        reply:
+          type: string
+          minLength: 1
+        sources:
+          type: array
+          items:
+            type: object
+            required: [title, url]
+            properties:
+              title:
+                type: string
+                minLength: 1
+              url:
+                type: string
+                format: uri
+                description: Absolute HTTP or HTTPS URL.
+    ErrorResponse:
+      type: object
+      required: [code, error]
+      properties:
+        code:
+          type: string
+          enum: [invalid_request, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable, request_conflict]
+        error:
+          type: string
     HealthResponse:
       type: object
       required: [status]
