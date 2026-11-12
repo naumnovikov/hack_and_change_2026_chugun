@@ -1,4 +1,25 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useChatStore } from './stores/chatStore'
+
 export default function App() {
+  const messages = useChatStore((state) => state.messages)
+  const addMessage = useChatStore((state) => state.addMessage)
+  const isTyping = useChatStore((state) => state.isTyping)
+  const [draft, setDraft] = useState('')
+  const conversationRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const conversation = conversationRef.current
+    if (conversation) conversation.scrollTop = conversation.scrollHeight
+  }, [messages, isTyping])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!draft.trim()) return
+    addMessage(draft)
+    setDraft('')
+  }
+
   return (
     <main className="chat" aria-label="Чат с AI-buddy">
       <header className="chat-header">
@@ -12,8 +33,8 @@ export default function App() {
         <span className="demo-badge">Демо</span>
       </header>
 
-      <section className="conversation" role="log" aria-label="История сообщений">
-        <div className="empty-state">
+      <section ref={conversationRef} className="conversation" role="log" aria-label="История сообщений" aria-relevant="additions text">
+        {messages.length === 0 ? <div className="empty-state">
           <div className="welcome-mark" aria-hidden="true">
             <svg viewBox="0 0 48 48" fill="none">
               <path d="M11 10h26a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H23l-11 7v-7h-1a5 5 0 0 1-5-5V15a5 5 0 0 1 5-5Z" />
@@ -31,11 +52,20 @@ export default function App() {
             <li><span className="topic-dot purple" />Внутренние термины</li>
             <li><span className="topic-dot green" />Поиск коллег</li>
           </ul>
-        </div>
+        </div> : <ol className="message-list">
+          {messages.map((message) => (
+            <li key={message.id} className={`message message-${message.role}`}>
+              <span className="message-author">{message.role === 'user' ? 'Вы' : 'AI-buddy'}</span>
+              <p>{message.content}</p>
+            </li>
+          ))}
+        </ol>}
       </section>
 
+      {isTyping && <p className="typing-status" role="status">AI-buddy печатает…</p>}
+
       <div className="composer-area">
-        <div className="composer">
+        <form className="composer" aria-label="Отправка сообщения" onSubmit={handleSubmit}>
           <label className="sr-only" htmlFor="message">Сообщение AI-buddy</label>
           <textarea
             id="message"
@@ -43,16 +73,18 @@ export default function App() {
             rows={2}
             placeholder="О чём хочешь спросить?"
             aria-describedby="composer-hint"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
           />
-          <button type="button" className="send-button" disabled>
+          <button type="submit" className="send-button" disabled={!draft.trim()}>
             <span>Отправить</span>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M5 12h14m-6-6 6 6-6 6" />
             </svg>
           </button>
-        </div>
+        </form>
         <p id="composer-hint" className="composer-hint">
-          Демо интерфейса · отправка сообщений пока недоступна
+          Локальный чат · сообщения не отправляются AI-buddy и исчезнут после обновления страницы
         </p>
       </div>
 
