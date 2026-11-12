@@ -117,7 +117,7 @@ func getEmployeeByIDHandler(w http.ResponseWriter, r *http.Request) {
 func setupRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)
-	mux.HandleFunc("POST /api/chat", chatHandler(&http.Client{Timeout: 30 * time.Second}, os.Getenv("AI_SERVICE_URL")))
+	mux.HandleFunc("POST /api/chat", chatHandler(&http.Client{Timeout: aiRequestTimeout()}, os.Getenv("AI_SERVICE_URL")))
 	mux.HandleFunc("POST /api/mock/access-request", createAccessRequestHandler)
 	mux.HandleFunc("POST /api/mock/message", sendMessageHandler)
 	mux.HandleFunc("GET /api/mock/employee", getEmployeeByServiceHandler)
@@ -148,7 +148,7 @@ func main() {
 	}
 	defer store.DB.Close()
 	mux := persistentActions(store)
-	mux.HandleFunc("POST /api/chat", demoChat(store, chatHandler(&http.Client{Timeout: 30 * time.Second}, os.Getenv("AI_SERVICE_URL"))))
+	mux.HandleFunc("POST /api/chat", demoChat(store, chatHandler(&http.Client{Timeout: aiRequestTimeout()}, os.Getenv("AI_SERVICE_URL"))))
 	log.Printf("🚀 Backend server запускается на порту %s...", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
