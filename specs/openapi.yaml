@@ -13,6 +13,19 @@ paths:
     post:
       summary: JSON chat proxy to AI service (intermediate contract before SSE)
       operationId: chat
+      parameters:
+        - in: header
+          name: X-Request-ID
+          required: true
+          description: New unique key for each message; reuse the same key and body on retry.
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{8,128}$'
+        - in: cookie
+          name: demo_chat
+          description: Opaque server-generated demo conversation cookie; never a corporate identity.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -31,6 +44,8 @@ paths:
         '502':
           $ref: '#/components/responses/ChatError'
         '503':
+          $ref: '#/components/responses/ChatError'
+        '409':
           $ref: '#/components/responses/ChatError'
         '504':
           $ref: '#/components/responses/ChatError'
@@ -164,7 +179,7 @@ components:
       properties:
         code:
           type: string
-          enum: [invalid_request, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable]
+          enum: [invalid_request, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable, request_conflict]
         error:
           type: string
     HealthResponse:

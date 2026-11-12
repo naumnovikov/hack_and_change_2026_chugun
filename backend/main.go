@@ -148,7 +148,7 @@ func main() {
 	}
 	defer store.DB.Close()
 	mux := persistentActions(store)
-	mux.HandleFunc("POST /api/chat", chatHandler(&http.Client{Timeout: 30 * time.Second}, os.Getenv("AI_SERVICE_URL")))
+	mux.HandleFunc("POST /api/chat", demoChat(store, chatHandler(&http.Client{Timeout: 30 * time.Second}, os.Getenv("AI_SERVICE_URL"))))
 	log.Printf("🚀 Backend server запускается на порту %s...", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
