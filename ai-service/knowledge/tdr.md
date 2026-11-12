@@ -1,8 +1,8 @@
 # TDR: Tech Design Review
 
 Тип: public. Редакционный пересказ открытой публикации, не внутренний регламент.
-Источник: https://github.com/avito-tech/playbook/blob/master/tech_design_review.md
-Проверено: 12.11.2026. Ревизия: master, commit SHA не зафиксирован.
+Источник: https://github.com/avito-tech/playbook/blob/0c1d2aa1501ca6889357908f54b12695f0534e48/tech_design_review.md
+Проверено: 12.11.2026. Ревизия: 0c1d2aa1501ca6889357908f54b12695f0534e48.
 
 ## Значение термина
 
