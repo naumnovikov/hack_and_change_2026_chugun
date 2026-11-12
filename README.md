@@ -2,7 +2,7 @@
 
 Проект команды **Чугун** для Hack&Change 2026. Репозиторий содержит Go mock API, базовый FastAPI-сервис и Docker Compose-инфраструктуру.
 
-> **Текущее состояние:** инфраструктура и Backend mock API проверены в Docker. AI endpoint пока возвращает фиксированный ответ. RAG/LLM-вызов и пользовательский Frontend ещё не реализованы.
+> **Текущее состояние:** инфраструктура и Backend mock API проверены в Docker. AI endpoint пока возвращает фиксированный ответ. RAG/LLM-вызов и интерфейс чата ещё не реализованы. Frontend scaffold готов для локальной разработки.
 
 ## Документация
 
@@ -19,6 +19,12 @@
 
 - Docker Desktop с Docker Compose.
 - Свободные локальные порты или их переопределение в `.env`.
+
+## Frontend: локальная разработка
+
+Добавлена основа Vite + React + TypeScript с Zustand и Zod, строгой проверкой типов и первым тестом.
+Локальный запуск и проверки описаны в [`frontend/README.md`](./frontend/README.md).
+Интерфейс чата ещё не реализован; Frontend в Docker Compose пока остаётся заглушкой.
 
 ## Запуск через Docker Compose
 
@@ -90,7 +96,7 @@ curl -i -X POST http://localhost:8000/chat \
 docker compose run --build --rm --no-deps ai-service python -m pytest
 ```
 
-Backend CI загружает отчёт покрытия как artifact; последний проверенный показатель Backend — 91,5%. AI CI запускает тесты и сборку Docker-образа. Frontend job пока нет, так как Frontend scaffold и тесты ещё не добавлены.
+Backend CI загружает отчёт покрытия как artifact; последний проверенный показатель Backend — 91,5%. AI CI запускает тесты и сборку Docker-образа. Frontend scaffold и первый тест добавлены; Frontend job в CI пока не подключён.
 
 ## Ограничения текущего прототипа
 
