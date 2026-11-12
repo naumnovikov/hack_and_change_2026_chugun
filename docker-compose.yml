@@ -82,16 +82,11 @@ services:
       - app-network
 
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
     restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
     ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:8080}
-    command: tail -f /dev/null
+      - "3000:80"
     depends_on:
       - backend
     networks:
