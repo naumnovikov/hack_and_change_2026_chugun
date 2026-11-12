@@ -1,0 +1,18 @@
+[
+  {
+    "document_id": "avito-spt",
+    "filename": "spt.md",
+    "source_url": "https://github.com/avito-tech/playbook/blob/0c1d2aa1501ca6889357908f54b12695f0534e48/spt.md",
+    "source_revision": "0c1d2aa1501ca6889357908f54b12695f0534e48",
+    "source_type": "public",
+    "content_kind": "editorial_summary"
+  },
+  {
+    "document_id": "avito-tdr",
+    "filename": "tdr.md",
+    "source_url": "https://github.com/avito-tech/playbook/blob/0c1d2aa1501ca6889357908f54b12695f0534e48/tech_design_review.md",
+    "source_revision": "0c1d2aa1501ca6889357908f54b12695f0534e48",
+    "source_type": "public",
+    "content_kind": "editorial_summary"
+  }
+]

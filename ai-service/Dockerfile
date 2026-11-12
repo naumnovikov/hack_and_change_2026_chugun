@@ -7,7 +7,8 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-COPY main.py pyproject.toml ./
+COPY main.py chunking.py pyproject.toml ./
+COPY knowledge ./knowledge
 COPY tests ./tests
 
 EXPOSE 8000
