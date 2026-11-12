@@ -1,61 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createAccessRequest,
-  findEmployee,
-  sendChatMessage,
-  sendMockMessage,
-} from './api'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { sendChatMessage } from './api'
 beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
-
-describe('Клиент Backend API', () => {
-  it('валидирует ответ чата и источники', async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({
-      reply: 'Подтверждённый ответ',
-      sources: [{ title: 'Playbook', url: 'https://example.org/playbook' }],
-    }))
-
-    await expect(sendChatMessage('Вопрос')).resolves.toMatchObject({
-      reply: 'Подтверждённый ответ',
-      sources: [{ title: 'Playbook' }],
-    })
+describe('Chat API contract', () => {
+  it('sends the caller key and keeps the conversation cookie', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ reply: 'Ответ', sources: [{ title: 'Источник', url: 'https://example.org' }] })))
+    await expect(sendChatMessage('Вопрос', 'stable-request-key')).resolves.toMatchObject({ reply: 'Ответ' })
+    expect(fetch).toHaveBeenCalledWith('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Request-ID': 'stable-request-key' }, body: '{"message":"Вопрос"}' })
   })
-
-  it('кодирует поисковый параметр и валидирует сотрудника', async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({
-      employee_id: 'demo-1',
-      name: 'Демо',
-      role: 'Tech Lead',
-      mattermost_id: '@demo',
-    }))
-
-    await expect(findEmployee('billing & api')).resolves.toMatchObject({ employee_id: 'demo-1' })
-    expect(fetch).toHaveBeenCalledWith('/api/mock/employee?service_name=billing+%26+api', expect.anything())
+  it.each([
+    ['empty reply', { reply: '' }],
+    ['bad source', { reply: 'a', sources: [{ title: 'a', url: 'javascript:alert(1)' }] }],
+    ['unexpected tool', { reply: 'a', tool: 'send_message' }],
+  ])('rejects %s', async (_, payload) => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(payload)))
+    await expect(sendChatMessage('hi', 'request-001')).rejects.toThrow('неожиданном формате')
   })
-
-  it('валидирует результаты mock действий', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse({ ticket_id: 'DEMO-1', status: 'created', message: 'Создано' }))
-      .mockResolvedValueOnce(jsonResponse({ message_id: 'DEMO-2', sent_at: '2026-11-12T10:00:00Z' }))
-
-    await expect(createAccessRequest('Jira')).resolves.toMatchObject({ ticket_id: 'DEMO-1' })
-    await expect(sendMockMessage('demo-1', 'Проверь PR')).resolves.toMatchObject({ message_id: 'DEMO-2' })
+  it('rejects invalid JSON', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('!'))
+    await expect(sendChatMessage('hi', 'request-001')).rejects.toThrow('неожиданном формате')
   })
-
-  it('не принимает некорректный успешный ответ', async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({ reply: '' }))
-    await expect(sendChatMessage('Вопрос')).rejects.toThrow('неожиданном формате')
+  it('shows a structured Backend error', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ code: 'ai_timeout', error: 'AI не ответил' }), { status: 504 }))
+    await expect(sendChatMessage('hi', 'request-001')).rejects.toThrow('AI не ответил')
   })
-
-  it('передаёт сообщение Backend-ошибки пользователю', async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({ code: 'ai_timeout', error: 'AI не ответил' }, 504))
-    await expect(sendChatMessage('Вопрос')).rejects.toThrow('AI не ответил')
+  it('handles an HTML gateway error', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('<html>bad gateway</html>', { status: 502 }))
+    await expect(sendChatMessage('hi', 'request-001')).rejects.toThrow('502')
+  })
+  it('handles network failures', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('offline'))
+    await expect(sendChatMessage('hi', 'request-001')).rejects.toThrow('Не удалось связаться')
   })
 })
