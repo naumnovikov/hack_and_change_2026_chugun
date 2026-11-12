@@ -142,13 +142,22 @@ func loadConfig() string {
 
 func main() {
 	port := loadConfig()
+	internalToken := os.Getenv("AI_INTERNAL_TOKEN")
+	if internalToken != "" && len(internalToken) < 32 {
+		log.Fatal("AI_INTERNAL_TOKEN must contain at least 32 characters")
+	}
 	store, err := openStore(os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer store.DB.Close()
 	mux := persistentActions(store)
-	mux.HandleFunc("POST /api/chat", demoChat(store, chatHandler(&http.Client{Timeout: aiRequestTimeout()}, os.Getenv("AI_SERVICE_URL"))))
+	client := &http.Client{Timeout: aiRequestTimeout()}
+	var chat http.Handler = demoChat(store, chatHandler(client, os.Getenv("AI_SERVICE_URL")))
+	if internalToken != "" {
+		chat = agentChat(store, agentStepClient(client, os.Getenv("AI_SERVICE_URL"), internalToken), internalToken)
+	}
+	mux.Handle("POST /api/chat", chat)
 	log.Printf("🚀 Backend server запускается на порту %s...", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
