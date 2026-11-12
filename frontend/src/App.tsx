@@ -7,6 +7,7 @@ export default function App() {
   const isTyping = useChatStore((state) => state.isTyping)
   const [draft, setDraft] = useState('')
   const conversationRef = useRef<HTMLElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     const conversation = conversationRef.current
@@ -18,6 +19,7 @@ export default function App() {
     if (!draft.trim()) return
     addMessage(draft)
     setDraft('')
+    inputRef.current?.focus()
   }
 
   return (
@@ -62,12 +64,18 @@ export default function App() {
         </ol>}
       </section>
 
-      {isTyping && <p className="typing-status" role="status">AI-buddy печатает…</p>}
+      {isTyping && (
+        <p className="typing-status" role="status">
+          <span className="typing-dots" aria-hidden="true"><span /><span /><span /></span>
+          AI-buddy печатает…
+        </p>
+      )}
 
       <div className="composer-area">
         <form className="composer" aria-label="Отправка сообщения" onSubmit={handleSubmit}>
           <label className="sr-only" htmlFor="message">Сообщение AI-buddy</label>
           <textarea
+            ref={inputRef}
             id="message"
             name="message"
             rows={2}
@@ -76,7 +84,7 @@ export default function App() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
-          <button type="submit" className="send-button" disabled={!draft.trim()}>
+          <button type="submit" className="send-button" aria-label="Отправить" disabled={!draft.trim()}>
             <span>Отправить</span>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M5 12h14m-6-6 6 6-6 6" />
