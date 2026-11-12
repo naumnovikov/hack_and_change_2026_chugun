@@ -42,6 +42,7 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-avito}:${POSTGRES_PASSWORD:-avito}@postgres:5432/${POSTGRES_DB:-aibuddy}?sslmode=disable
       - AI_SERVICE_URL=${AI_SERVICE_URL:-http://ai-service:8000}
       - AI_REQUEST_TIMEOUT=${AI_REQUEST_TIMEOUT:-180s}
+      - AI_INTERNAL_TOKEN=${AI_INTERNAL_TOKEN:-}
     command: go run .
     depends_on:
       postgres:

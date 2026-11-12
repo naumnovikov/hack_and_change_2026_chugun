@@ -27,6 +27,12 @@ describe('Server-owned chat', () => {
     }))
     expect(fetch).toHaveBeenCalledTimes(1)
   })
+  it('describes the live RAG and clearly labels demo actions', () => {
+    render(<App />)
+    expect(screen.getByText(/Ответы основаны на открытых материалах/)).toBeVisible()
+    expect(screen.queryByText(/AI сейчас отвечает заглушкой/)).not.toBeInTheDocument()
+    expect(screen.getByText(/реальные доступы не выдаются/)).toBeVisible()
+  })
   it('renders sources returned by Backend', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ reply: 'Ответ по источнику', sources: [{ title: 'Playbook', url: 'https://example.org/spt' }] })))
     render(<App />); submit('Что такое SPT?')
