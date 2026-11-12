@@ -46,4 +46,5 @@ spt.md и tdr.md, перечисленные в sources.json. Отсутстви
 Подготовлены материалы, вопросы, sources.json и разбиение в chunking.py.
 Формат и приёмка описаны в specs/rag-chunks.spec.md от корня репозитория.
 load_corpus(Path("knowledge")) возвращает шесть чанков без сетевых запросов.
-Embeddings, загрузка в pgvector и генерация ответов ещё не реализованы.
+Embeddings, атомарная загрузка в pgvector и генерация реализованы в AI runtime.
+Порядок запуска и проверки: ../README.md. Для индексации: python -m ingest.

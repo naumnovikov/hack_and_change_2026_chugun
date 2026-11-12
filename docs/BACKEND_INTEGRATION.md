@@ -9,8 +9,9 @@ Frontend -> `POST /api/chat` Go -> `POST /chat` Python.
 пробелы по краям удаляются, длина после удаления 1–8000 Unicode-символов.
 Ответ: `{"reply":"...","sources":[{"title":"Demo Playbook","url":"https://example.org/demo"}]}`.
 `sources` необязателен; при отсутствии источников ссылки не придумываются.
-Текущий Python возвращает только reply, что совместимо с Go.
-Формат источников — предложение для следующей итерации AI; существующий Python пока их не производит.
+Python RAG возвращает reply и sources, что совместимо с Go. Без найденного
+контекста возвращается честный отказ; Go может опустить пустой sources.
+Подготовка моделей и индексация описаны в ai-service/README.md.
 
 Ошибки Go: `{"code":"ai_timeout","error":"AI-сервис не ответил вовремя"}`.
 - 400 invalid_request — некорректный JSON, лишние поля, пустое/длинное сообщение.
@@ -59,13 +60,22 @@ CREATE TABLE IF NOT EXISTS подходит для уже существующе
   сверяет их независимым SELECT и удаляет свои записи. Без env тест явно пропускается.
 - Compose: скопировать .env.example в .env, выполнить
   `docker compose up --build postgres backend ai-service`.
-- POST localhost:8080/api/chat с JSON `{"message":"Привет"}` должен вернуть reply от AI.
+- POST localhost:8080/api/chat с X-Request-ID и JSON `{"message":"Что такое SPT?"}` после индексации должен вернуть reply и источник от AI.
 - POST /api/mock/access-request и /api/mock/message должны сохранять строки;
   проверить их после перезапуска backend.
 
 Проверено 12.11.2026: unit-тесты и go vet проходят, покрытие 89,7%. В Docker прошёл TestPostgresIntegration на отдельной БД. Smoke-проверка: /health, /api/chat, создание заявки и сообщения; записи подтверждены SQL после перезапуска Backend. На Windows HTTP health/chat проверены на порту 18080 (8080 занят Apache). AI запущен с --no-deps без Ollama, так как текущая заглушка не вызывает LLM. Полный запуск всех сервисов и RAG не проверены.
 Для мок-адаптеров нет trusted user context, IAM, подтверждения отправки и идемпотентности.
 Они не должны публиковаться как готовые безопасные tools агента.
+
+## Объединение с AI, 13.11.2026
+
+AI реализует embeddings, pgvector-поиск и генерацию с проверяемыми источниками.
+В отдельном Docker-прогоне настоящий HTTP через Backend подтвердил SPT с источником,
+ZBP без контекста и 502 ai_error при недоступной модели; рабочий адрес модели
+после проверки восстановлен. Это не проверка полного трёхсценарного AI-agent E2E.
+Точные поля будущего /agent/step и обязанности Go — ai-service/BACKEND_HANDOFF.md
+и specs/ai-runtime.spec.md. Текущий server-side demo-flow не вызывает Python tools.
 
 ## Таймаут локальной модели
 
