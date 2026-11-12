@@ -63,6 +63,6 @@ CREATE TABLE IF NOT EXISTS подходит для уже существующе
 - POST /api/mock/access-request и /api/mock/message должны сохранять строки;
   проверить их после перезапуска backend.
 
-В текущем окружении unit-тесты и go vet пройдены; реальный Postgres и Docker не проверены.
+Проверено 12.11.2026: unit-тесты и go vet проходят, покрытие 89,7%. В Docker прошёл TestPostgresIntegration на отдельной БД. Smoke-проверка: /health, /api/chat, создание заявки и сообщения; записи подтверждены SQL после перезапуска Backend. На Windows HTTP health/chat проверены на порту 18080 (8080 занят Apache). AI запущен с --no-deps без Ollama, так как текущая заглушка не вызывает LLM. Полный запуск всех сервисов и RAG не проверены.
 Для мок-адаптеров нет trusted user context, IAM, подтверждения отправки и идемпотентности.
 Они не должны публиковаться как готовые безопасные tools агента.
