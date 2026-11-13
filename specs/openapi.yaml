@@ -9,9 +9,44 @@ servers:
     description: Local & Docker Backend
 
 paths:
+  /api/presentations/{id}:
+    get:
+      summary: Download a demo PDF owned by the current chat session
+      description: Link expires after one hour. Unknown, expired and foreign IDs all return 404. Responses are not cached.
+      operationId: downloadPresentation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f0-9]{64}$'
+        - in: cookie
+          name: demo_chat
+          required: true
+          description: Server-issued HttpOnly cookie with Path=/api; not corporate authentication.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Five-slide demo draft PDF
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: attachment; filename="demo-intern-results.pdf"
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/ChatError'
+        '503':
+          $ref: '#/components/responses/ChatError'
   /api/chat:
     post:
-      summary: JSON chat proxy to AI service (intermediate contract before SSE)
+      summary: Demo agent chat with optional session-bound PDF attachment
       operationId: chat
       parameters:
         - in: header
@@ -34,12 +69,14 @@ paths:
               $ref: '#/components/schemas/ChatRequest'
       responses:
         '200':
-          description: AI reply and optional sources
+          description: AI reply, optional sources and optional one-hour PDF attachment. Reusing the request key returns the saved response and artifact.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatResponse'
         '400':
+          $ref: '#/components/responses/ChatError'
+        '422':
           $ref: '#/components/responses/ChatError'
         '502':
           $ref: '#/components/responses/ChatError'
@@ -157,6 +194,8 @@ components:
       type: object
       required: [reply]
       properties:
+        attachment:
+          $ref: '#/components/schemas/PresentationAttachment'
         reply:
           type: string
           minLength: 1
@@ -173,13 +212,34 @@ components:
                 type: string
                 format: uri
                 description: Absolute HTTP or HTTPS URL.
+    PresentationAttachment:
+      type: object
+      additionalProperties: false
+      required: [id, filename, content_type, download_url, expires_at]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        filename:
+          type: string
+          example: demo-intern-results.pdf
+        content_type:
+          type: string
+          enum: [application/pdf]
+        download_url:
+          type: string
+          description: Same-origin session-bound path; never an external URL.
+          example: /api/presentations/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        expires_at:
+          type: string
+          format: date-time
     ErrorResponse:
       type: object
       required: [code, error]
       properties:
         code:
           type: string
-          enum: [invalid_request, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable, request_conflict]
+          enum: [invalid_request, invalid_presentation_input, unsupported_pdf_text, incomplete_presentation, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable, request_conflict, presentation_not_found]
         error:
           type: string
     HealthResponse:

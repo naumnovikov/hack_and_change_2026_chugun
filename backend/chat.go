@@ -19,8 +19,9 @@ type Source struct {
 	URL   string `json:"url"`
 }
 type ChatResponse struct {
-	Reply   string   `json:"reply"`
-	Sources []Source `json:"sources,omitempty"`
+	Reply      string                  `json:"reply"`
+	Sources    []Source                `json:"sources,omitempty"`
+	Attachment *PresentationAttachment `json:"attachment,omitempty"`
 }
 type ErrorResponse struct {
 	Error string `json:"error"`

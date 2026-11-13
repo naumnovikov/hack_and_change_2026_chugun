@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS mock_messages (
 );`
 
 func (s PostgresStore) Initialize(ctx context.Context) error {
-	_, err := s.DB.ExecContext(ctx, mockSchema+demoSchema)
+	_, err := s.DB.ExecContext(ctx, mockSchema+demoSchema+presentationSchema)
 	return err
 }
 func (s PostgresStore) CreateAccess(ctx context.Context, service string) (AccessRequestResponse, error) {
