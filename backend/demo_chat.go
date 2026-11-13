@@ -71,8 +71,8 @@ func demoChat(store PostgresStore, fallback http.Handler) http.HandlerFunc {
 		}
 		if session == "" {
 			session = randomSession()
-			http.SetCookie(w, &http.Cookie{Name: "demo_chat", Value: session, Path: "/api/chat", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: 86400})
 		}
+		setDemoCookie(w, r, session)
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		result, handled, conflict, err := store.processDemo(ctx, session, id, input.Message)

@@ -150,7 +150,7 @@ func validAgentSources(sources []Source) bool {
 	return true
 }
 
-func agentChat(store PostgresStore, step agentStepper, token string) http.HandlerFunc {
+func agentChat(store PostgresStore, step agentStepper, token string, presentations ...presentationGenerator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if len(token) < 32 {
 			apiError(w, http.StatusServiceUnavailable, "agent_unavailable", "AI-agent не настроен")
@@ -179,16 +179,19 @@ func agentChat(store PostgresStore, step agentStepper, token string) http.Handle
 		}
 		if session == "" {
 			session = randomSession()
-			http.SetCookie(w, &http.Cookie{Name: "demo_chat", Value: session, Path: "/api/chat", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: 86400})
 		}
+		setDemoCookie(w, r, session)
 		ctx, cancel := context.WithTimeout(r.Context(), 3*aiRequestTimeout())
 		defer cancel()
-		response, conflict, err := store.processAgent(ctx, session, id, input.Message, step)
+		response, conflict, err := store.processAgent(ctx, session, id, input.Message, step, presentations...)
 		if err != nil {
 			log.Printf("demo AI-agent request failed: %v", err)
 			var storageErr *agentStorageError
 			var timeout interface{ Timeout() bool }
+			var presentationErr *presentationError
 			switch {
+			case errors.As(err, &presentationErr):
+				apiError(w, presentationErr.Status, presentationErr.Code, "Не удалось сформировать демо-презентацию")
 			case errors.As(err, &storageErr):
 				apiError(w, http.StatusServiceUnavailable, "storage_unavailable", "Не удалось сохранить результат демо-действия")
 			case errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()):
@@ -206,7 +209,7 @@ func agentChat(store PostgresStore, step agentStepper, token string) http.Handle
 	}
 }
 
-func (s PostgresStore) processAgent(ctx context.Context, session, requestID, message string, step agentStepper) (ChatResponse, bool, error) {
+func (s PostgresStore) processAgent(ctx context.Context, session, requestID, message string, step agentStepper, presentations ...presentationGenerator) (ChatResponse, bool, error) {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return ChatResponse{}, false, &agentStorageError{err}
@@ -277,6 +280,18 @@ func (s PostgresStore) processAgent(ctx context.Context, session, requestID, mes
 		ExplicitAccessRequest: explicitAgentAccess.MatchString(message),
 		ConfirmedMessage:      confirmed,
 	}
+	// MVP routing belongs to Go: the AI draft endpoint is available independently
+	// of the legacy agent tool allowlist. Identity and task selection stay trusted.
+	if explicitPresentation.MatchString(message) {
+		if len(presentations) != 1 || presentations[0] == nil {
+			return ChatResponse{}, false, &presentationError{503, "ai_unavailable"}
+		}
+		response, err := createPresentation(ctx, tx, session, request.UserContext.UserID, presentations[0])
+		if err != nil {
+			return ChatResponse{}, false, err
+		}
+		return persistAgentResult(ctx, tx, session, requestID, message, demoState{}, response)
+	}
 	output, err := step(ctx, request)
 	if err != nil {
 		return ChatResponse{}, false, err
@@ -296,6 +311,19 @@ func (s PostgresStore) processAgent(ctx context.Context, session, requestID, mes
 	}
 	result := agentToolResult{CallID: tool.CallID, Name: tool.Name, Status: "success", Result: map[string]any{}}
 	switch tool.Name {
+	case "create_presentation":
+		var args struct{}
+		if !explicitPresentation.MatchString(message) || decodeAgentArguments(tool.Arguments, &args) != nil {
+			return ChatResponse{}, false, errors.New("unauthorized presentation request")
+		}
+		if len(presentations) != 1 {
+			return ChatResponse{}, false, errors.New("presentation generator unavailable")
+		}
+		response, err := createPresentation(ctx, tx, session, request.UserContext.UserID, presentations[0])
+		if err != nil {
+			return ChatResponse{}, false, err
+		}
+		return persistAgentResult(ctx, tx, session, requestID, message, demoState{}, response)
 	case "create_access_request":
 		var args demoServiceArgs
 		if err = decodeAgentArguments(tool.Arguments, &args); err != nil ||

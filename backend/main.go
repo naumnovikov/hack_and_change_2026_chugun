@@ -155,9 +155,11 @@ func main() {
 	client := &http.Client{Timeout: aiRequestTimeout()}
 	var chat http.Handler = demoChat(store, chatHandler(client, os.Getenv("AI_SERVICE_URL")))
 	if internalToken != "" {
-		chat = agentChat(store, agentStepClient(client, os.Getenv("AI_SERVICE_URL"), internalToken), internalToken)
+		chat = agentChat(store, agentStepClient(client, os.Getenv("AI_SERVICE_URL"), internalToken), internalToken,
+			presentationClient(client, os.Getenv("AI_SERVICE_URL"), internalToken))
 	}
 	mux.Handle("POST /api/chat", chat)
+	mux.HandleFunc("GET /api/presentations/{id}", presentationDownload(store))
 	log.Printf("🚀 Backend server запускается на порту %s...", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
