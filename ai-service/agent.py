@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
 from errors import AIError
+from rag import definition_query
 
 
 Text = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=8000)]
@@ -136,6 +137,9 @@ class Agent:
                           "Подготовь текст запроса на ревью и подтверди получателя и полный текст.", "draft")
         if request.tool_steps >= 3:
             return answer("Достигнут лимит трёх действий. Уточни следующий шаг с наставником.", "limit")
+        if (not request.explicit_access_request and request.confirmed_message is None
+                and definition_query(request.message)):
+            return {"kind": "answer", "state": "answer", **self.rag.answer(request.message)}
         tools = []
         for name, model in ARGUMENTS.items():
             if name == "send_message" and not request.confirmed_message:
