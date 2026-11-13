@@ -127,10 +127,12 @@ people-search сценарий; он будет заменён отдельны�
 - `GET /api/mock/employee?service_name=...` — поиск синтетического сотрудника по сервису.
 - `GET /api/mock/employee/{id}` — карточка синтетического сотрудника по ID.
 
-Защищённый demo-agent flow сохраняет заявки, сообщения и состояния чата в
-Postgres; повтор с тем же `X-Request-ID` идемпотентен. Поддерживаются
+Текущий защищённый demo-agent flow сохраняет заявки, сообщения и состояния чата
+в Postgres; повтор с тем же `X-Request-ID` идемпотентен. Сейчас поддерживаются
 `create_access_request`, `find_employee`, `send_message`; Python только
-предлагает tool call, Go валидирует и исполняет его. Спеки:
+предлагает tool call, Go валидирует и исполняет его. В целевом MVP
+`find_employee`/`send_message` должны быть заменены обработкой презентации по
+`specs/presentation.spec.md`. Существующие tool спеки:
 `specs/tools/access_request.spec.md`, `specs/tools/find_employee.spec.md`,
 `specs/tools/send_message.spec.md`. Все записи и сотрудники синтетические:
 успешный ответ не означает реальную выдачу доступа или отправку сообщения в
