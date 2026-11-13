@@ -12,7 +12,8 @@ def definition_query(question):
     term = r"([a-z][a-z0-9_]{1,63})"
     explanation = r"(?:что\s+такое|что\s+значит|что\s+означает)"
     for pattern in (term, explanation + r"\s+" + term,
-                    term + r"\s*[-—–:]?\s*" + explanation):
+                    term + r"\s*[-—–:]?\s*" + explanation,
+                    term + r"\s+это\s+(?:что|чо|тчо)"):
         match = re.fullmatch(pattern + r"\s*[?.!]?", question.strip(), re.I)
         if match:
             return f"Что такое {match.group(1).upper()}?"
