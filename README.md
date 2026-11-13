@@ -16,6 +16,7 @@
 - [Метрики](./docs/METRICS.md)
 - [OpenAPI Backend](./specs/openapi.yaml)
 - [Спецификация агента](./specs/agent.spec.md)
+- [Спецификация PDF-презентации по Jira-задачам](./specs/presentation.spec.md)
 - [AI: запуск, настройки и тесты](./ai-service/README.md)
 - [Контракт AI для Backend и результаты интеграции](./ai-service/BACKEND_HANDOFF.md)
 - [Внутренний AI API](./ai-service/openapi.yaml)
