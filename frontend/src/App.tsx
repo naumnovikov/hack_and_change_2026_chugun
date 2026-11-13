@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { sendChatMessage } from './api'
+import { fetchPresentation, sendChatMessage, type ChatAttachment } from './api'
 import { useChatStore } from './stores/chatStore'
 
 type ChatRequest = { message: string; requestId: string }
@@ -10,6 +10,9 @@ export default function App() {
   const isTyping = useChatStore((state) => state.isTyping)
   const setIsTyping = useChatStore((state) => state.setIsTyping)
   const [draft, setDraft] = useState('')
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [downloadError, setDownloadError] = useState<{ id: string; text: string } | null>(null)
+  const downloadInFlight = useRef(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [retryRequest, setRetryRequest] = useState<ChatRequest | null>(null)
   const conversationRef = useRef<HTMLElement>(null)
@@ -56,6 +59,27 @@ export default function App() {
     const message = draft
     setDraft('')
     await processUserMessage(message)
+  }
+
+  async function handleDownload(messageId: string, attachment: ChatAttachment) {
+    if (downloadInFlight.current) return
+    downloadInFlight.current = true
+    setDownloadingId(messageId)
+    setDownloadError(null)
+    try {
+      const blob = await fetchPresentation(attachment)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = attachment.filename
+      document.body.append(link)
+      try { link.click() } finally { link.remove(); URL.revokeObjectURL(url) }
+    } catch (error) {
+      setDownloadError({ id: messageId, text: error instanceof Error ? error.message : 'Не удалось скачать PDF. Попробуйте ещё раз.' })
+    } finally {
+      downloadInFlight.current = false
+      setDownloadingId(null)
+    }
   }
 
   async function handleSuggestion(message: string) {
@@ -118,8 +142,19 @@ export default function App() {
                         {new Date(message.attachment.expires_at).toLocaleString('ru-RU')}
                       </time></span>
                     </div>
-                    <a className="attachment-download" href={message.attachment.download_url}
-                      download={message.attachment.filename}>Скачать PDF</a>
+                    <button type="button" className="attachment-download" disabled={downloadingId !== null}
+                      onClick={() => message.attachment && void handleDownload(message.id, message.attachment)}>
+                      {downloadingId === message.id ? 'Скачивание…' : 'Скачать PDF'}
+                    </button>
+                    {downloadError?.id === message.id && (
+                      <div className="attachment-error" role="alert">
+                        <p>{downloadError.text}</p>
+                        <button type="button" disabled={isTyping || retryRequest !== null}
+                          onClick={() => void processUserMessage('Собери демо-черновик презентации по моим завершённым задачам')}>
+                          Запросить презентацию заново
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
                 {message.sources && message.sources.length > 0 && (

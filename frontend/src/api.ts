@@ -45,3 +45,26 @@ export async function sendChatMessage(message: string, requestId: string): Promi
   if (!parsed.success) throw new Error('Backend вернул ответ в неожиданном формате. Повторите запрос, чтобы проверить результат.')
   return parsed.data
 }
+
+export async function fetchPresentation(attachment: ChatAttachment): Promise<Blob> {
+  const parsed = attachmentSchema.safeParse(attachment)
+  if (!parsed.success) throw new Error('Некорректная ссылка на презентацию.')
+  let response: Response
+  try {
+    response = await fetch(parsed.data.download_url, { credentials: 'same-origin' })
+  } catch {
+    throw new Error('Не удалось скачать PDF. Проверьте соединение и попробуйте ещё раз.')
+  }
+  if (response.status === 404) {
+    throw new Error('Презентация недоступна: срок ссылки истёк или файл не найден. Запросите презентацию заново.')
+  }
+  if (!response.ok) throw new Error('Не удалось скачать PDF. Попробуйте позже.')
+  if (response.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !== 'application/pdf') {
+    throw new Error('Сервер вернул файл в неожиданном формате. Запросите презентацию заново.')
+  }
+  try {
+    return await response.blob()
+  } catch {
+    throw new Error('Загрузка PDF прервалась. Попробуйте скачать ещё раз.')
+  }
+}

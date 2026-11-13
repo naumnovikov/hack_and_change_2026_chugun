@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { sendChatMessage } from './api'
+import { fetchPresentation, sendChatMessage } from './api'
 import { presentationReply } from './test/presentationFixture'
 beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
 describe('Chat API contract', () => {
@@ -55,5 +55,37 @@ describe('Chat API contract', () => {
   it('handles network failures', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('offline'))
     await expect(sendChatMessage('hi', 'request-001')).rejects.toThrow('Не удалось связаться')
+  })
+})
+
+describe('PDF download', () => {
+  it('downloads a PDF with the conversation cookie', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('%PDF-test', { headers: { 'Content-Type': 'application/pdf' } }))
+    const blob = await fetchPresentation(presentationReply.attachment as Parameters<typeof fetchPresentation>[0])
+    expect(blob.size).toBeGreaterThan(0)
+    expect(fetch).toHaveBeenCalledWith(presentationReply.attachment.download_url, { credentials: 'same-origin' })
+  })
+  it.each([
+    [404, 'application/json', 'Презентация недоступна'],
+    [500, 'application/json', 'Попробуйте позже'],
+    [200, 'text/html', 'неожиданном формате'],
+  ])('handles download status %s / %s', async (status, mime, error) => {
+    vi.mocked(fetch).mockResolvedValue(new Response('file', { status, headers: { 'Content-Type': mime } }))
+    await expect(fetchPresentation(presentationReply.attachment as Parameters<typeof fetchPresentation>[0])).rejects.toThrow(error)
+  })
+  it('reports network failure without starting a new generation', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('offline'))
+    await expect(fetchPresentation(presentationReply.attachment as Parameters<typeof fetchPresentation>[0])).rejects.toThrow('Проверьте соединение')
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+  it('handles an interrupted body', async () => {
+    const result = new Response('', { headers: { 'Content-Type': 'application/pdf' } })
+    result.blob = () => Promise.reject(new Error('interrupted'))
+    vi.mocked(fetch).mockResolvedValue(result)
+    await expect(fetchPresentation(presentationReply.attachment as Parameters<typeof fetchPresentation>[0])).rejects.toThrow('прервалась')
+  })
+  it('refuses an unsafe URL before sending a request', async () => {
+    await expect(fetchPresentation({ ...presentationReply.attachment, content_type: 'application/pdf', download_url: 'https://evil.example/file' })).rejects.toThrow('Некорректная ссылка')
+    expect(fetch).not.toHaveBeenCalled()
   })
 })
