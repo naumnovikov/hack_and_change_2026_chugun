@@ -85,11 +85,14 @@ SYSTEM = """Составь демо-черновик презентации по
 Чему научился; Возможные следующие шаги.
 У title bullets пустой. У summary/tasks от 1 до 10 bullets.
 У learning от 0 до 10 bullets: если нет подтверждённых сведений, оставь пустым.
-Консервативный режим: каждый фактический text — дословная выдержка из summary
+Консервативный режим: каждый фактический text — ПОЛНОЕ поле summary
 или description переданной задачи (можно нормализовать пробелы), либо
 строка «KEY — SUMMARY». Не делай выводов о приобретённых навыках, метриках,
 датах, технологиях или результатах вне текста. source_keys содержит только
-ключи задач, в каждой из которых есть эта выдержка. Не повторяй ключи.
+ключи задач, у каждой из которых это полное поле. Не повторяй ключи.
+Слайд tasks обязан покрывать ВСЕ входные ключи через union(source_keys).
+Объединять ключи в один bullet можно только при одинаковом полном поле.
+Не обрезай отрицания, условия, предложения или задачи ради лимита bullets.
 У next_steps is_proposal=true, bullets пустой либо один пункт
 «Обсудить следующие задачи с наставником.» с source_keys=[].
 У остальных is_proposal=false. Не раскрывай рассуждения."""
@@ -119,8 +122,11 @@ class Presentation:
                     task = tasks.get(key)
                     text = normalize(bullet.text)
                     if task is None or not (
-                        text in normalize(task.summary) or text in normalize(task.description)
+                        text == normalize(task.summary) or text == normalize(task.description)
                         or text == normalize(f"{task.key} — {task.summary}")
                     ):
                         raise AIError("ungrounded_presentation", "Пункт презентации не подтверждён задачей", 502)
+        covered = {key for bullet in draft.slides[2].bullets for key in bullet.source_keys}
+        if covered != set(tasks):
+            raise AIError("incomplete_presentation", "Слайд задач не охватывает все переданные задачи", 502)
         return draft

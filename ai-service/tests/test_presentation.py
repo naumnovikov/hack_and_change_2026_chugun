@@ -99,7 +99,7 @@ def test_reject_untrusted_model_output(client_factory, variant):
 
 def test_excerpts_and_generic_proposal(client_factory):
     draft = valid_draft()
-    draft["slides"][1]["bullets"][0]["text"] = "Добавлена   серверная проверка"
+    draft["slides"][1]["bullets"][0]["text"] = "Добавлена   серверная проверка названия сервиса."
     draft["slides"][2]["bullets"][0]["text"] = "DEMO-101 — Добавить валидацию заявки"
     draft["slides"][3]["bullets"][0]["text"] = "Добавить валидацию заявки"
     draft["slides"][-1]["bullets"] = [{"text": PROPOSAL, "source_keys": []}]
@@ -121,6 +121,40 @@ def test_learning_still_requires_grounded_facts(client_factory):
     result = post(client_factory(model_response(draft)))
     assert result.status_code == 502
     assert result.json()["code"] == "ungrounded_presentation"
+
+
+@pytest.mark.parametrize("description,text", [
+    ("Не выполнена проверка прав.", "выполнена проверка прав."),
+    ("Проверка прошла только локально, но не в production.", "Проверка прошла"),
+    ("Тесты прошли. Проверка прав не выполнена.", "Тесты прошли."),
+])
+def test_reject_partial_fields_and_lost_negation(client_factory, description, text):
+    payload = {"tasks": [{**TASKS["tasks"][0], "description": description}]}
+    draft = valid_draft()
+    for slide in draft["slides"][1:4]:
+        slide["bullets"][0]["text"] = text
+    result = post(client_factory(model_response(draft)), payload=payload)
+    assert result.status_code == 502
+    assert result.json()["code"] == "ungrounded_presentation"
+
+
+@pytest.mark.parametrize("count", [3, 11, 50])
+def test_missing_tasks_never_returns_partial_success(client_factory, count):
+    payload = {"tasks": [{**TASKS["tasks"][0], "key": f"DEMO-{101+i}",
+                          "summary": f"Задача {i}"} for i in range(count)]}
+    result = post(client_factory(model_response(valid_draft())), payload=payload)
+    assert result.status_code == 502
+    assert result.json()["code"] == "incomplete_presentation"
+
+
+@pytest.mark.parametrize("count", [3, 10, 11, 50])
+def test_full_coverage_with_shared_complete_field(client_factory, count):
+    payload = {"tasks": [{**TASKS["tasks"][0], "key": f"DEMO-{101+i}"} for i in range(count)]}
+    draft = valid_draft()
+    draft["slides"][2]["bullets"][0]["source_keys"] = [task["key"] for task in payload["tasks"]]
+    result = post(client_factory(model_response(draft)), payload=payload)
+    assert result.status_code == 200
+    assert len(result.json()["slides"][2]["bullets"]) == 1
 
 
 @pytest.mark.parametrize("payload", [{"tasks": []}, {"tasks": TASKS["tasks"] * 2},
