@@ -1,12 +1,22 @@
-﻿import { z } from 'zod'
+import { z } from 'zod'
 
 const sourceSchema = z.object({
   title: z.string().trim().min(1),
   url: z.string().url().refine((value) => ['http:', 'https:'].includes(new URL(value).protocol)),
 }).strict()
+const attachmentSchema = z.object({
+  id: z.string().trim().min(1),
+  filename: z.string().trim().min(1),
+  content_type: z.literal('application/pdf'),
+  download_url: z.string().regex(/^\/api\/presentations\/[A-Za-z0-9_-]+$/),
+  expires_at: z.string().datetime({ offset: true }),
+}).strict()
+export type ChatAttachment = z.infer<typeof attachmentSchema>
+
 const chatResponseSchema = z.object({
   reply: z.string().trim().min(1),
   sources: z.array(sourceSchema).optional(),
+  attachment: attachmentSchema.optional(),
 }).strict()
 const errorResponseSchema = z.object({ code: z.string(), error: z.string() })
 export type ChatSource = z.infer<typeof sourceSchema>
@@ -34,4 +44,27 @@ export async function sendChatMessage(message: string, requestId: string): Promi
   const parsed = chatResponseSchema.safeParse(payload)
   if (!parsed.success) throw new Error('Backend вернул ответ в неожиданном формате. Повторите запрос, чтобы проверить результат.')
   return parsed.data
+}
+
+export async function fetchPresentation(attachment: ChatAttachment): Promise<Blob> {
+  const parsed = attachmentSchema.safeParse(attachment)
+  if (!parsed.success) throw new Error('Некорректная ссылка на презентацию.')
+  let response: Response
+  try {
+    response = await fetch(parsed.data.download_url, { credentials: 'same-origin' })
+  } catch {
+    throw new Error('Не удалось скачать PDF. Проверьте соединение и попробуйте ещё раз.')
+  }
+  if (response.status === 404) {
+    throw new Error('Презентация недоступна: срок ссылки истёк или файл не найден. Запросите презентацию заново.')
+  }
+  if (!response.ok) throw new Error('Не удалось скачать PDF. Попробуйте позже.')
+  if (response.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !== 'application/pdf') {
+    throw new Error('Сервер вернул файл в неожиданном формате. Запросите презентацию заново.')
+  }
+  try {
+    return await response.blob()
+  } catch {
+    throw new Error('Загрузка PDF прервалась. Попробуйте скачать ещё раз.')
+  }
 }

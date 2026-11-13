@@ -1,23 +1,75 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { presentationReply } from './test/presentationFixture'
 import { useChatStore } from './stores/chatStore'
 
 const response = (reply: string) => new Response(JSON.stringify({ reply }))
 beforeEach(() => {
   useChatStore.setState(useChatStore.getInitialState(), true)
   vi.stubGlobal('fetch', vi.fn())
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = vi.fn(() => 'blob:preview-pdf')
+    static revokeObjectURL = vi.fn()
+  })
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 })
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 function submit(text: string) {
   fireEvent.change(screen.getByRole('textbox'), { target: { value: text } })
   fireEvent.submit(screen.getByRole('form'))
 }
 describe('Server-owned chat', () => {
+  it('downloads a PDF through the same-origin API and releases the blob URL', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify(presentationReply)))
+      .mockResolvedValueOnce(new Response('%PDF-test', { headers: { 'Content-Type': 'application/pdf' } }))
+    render(<App />); submit('Собери презентацию')
+    fireEvent.click(await screen.findByRole('button', { name: 'Скачать PDF' }))
+    await screen.findByRole('button', { name: 'Скачать PDF' })
+    expect(fetch).toHaveBeenLastCalledWith(presentationReply.attachment.download_url, { credentials: 'same-origin' })
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+    expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-pdf')
+  })
+  it('explains a 404 and requests a fresh presentation with a new request key', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify(presentationReply)))
+      .mockResolvedValueOnce(new Response('', { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ reply: 'Новая презентация готова', attachment: presentationReply.attachment })))
+    render(<App />); submit('Собери презентацию')
+    fireEvent.click(await screen.findByRole('button', { name: 'Скачать PDF' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Презентация недоступна')
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledTimes(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Запросить презентацию заново' }))
+    expect(await screen.findByText('Новая презентация готова')).toBeVisible()
+    const chats = vi.mocked(fetch).mock.calls.filter(([path]) => path === '/api/chat')
+    expect(chats).toHaveLength(2)
+    const keys = chats.map(([, options]) => (options!.headers as Record<string, string>)['X-Request-ID'])
+    expect(keys[0]).not.toBe(keys[1])
+  })
+  it('renders a PDF download from the server response and keeps the same-origin URL', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(presentationReply)))
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Собери презентацию' }))
+    await screen.findByRole('button', { name: 'Скачать PDF' })
+    expect(screen.getByText(presentationReply.reply)).toBeVisible()
+    expect(screen.getByText(presentationReply.attachment.filename)).toBeVisible()
+    expect(screen.getByText('Демо-черновик · PDF')).toBeVisible()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(fetch).mock.calls[0]?.[1]).toMatchObject({ credentials: 'same-origin' })
+  })
+  it('leaves an ordinary response without a PDF download card', async () => {
+    vi.mocked(fetch).mockResolvedValue(response('Обычный ответ без файла'))
+    render(<App />); submit('Привет')
+    expect(await screen.findByText('Обычный ответ без файла')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Скачать PDF' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Демо-черновик · PDF')).not.toBeInTheDocument()
+  })
   it('shows examples and sends a suggestion through the chat endpoint', async () => {
     vi.mocked(fetch).mockResolvedValue(response('Создать демо-заявку?'))
     render(<App />)
     expect(screen.getByRole('button', { name: 'Что такое SPT?' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Найди владельца billing' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Собери презентацию' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Оформи доступ к Jira' }))
     expect(await screen.findByText('Создать демо-заявку?')).toBeVisible()
     expect(fetch).toHaveBeenCalledWith('/api/chat', expect.objectContaining({
