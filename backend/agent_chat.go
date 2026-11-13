@@ -191,6 +191,10 @@ func agentChat(store PostgresStore, step agentStepper, token string, presentatio
 			var presentationErr *presentationError
 			switch {
 			case errors.As(err, &presentationErr):
+				if presentationErr.Code == "unsupported_pdf_text" {
+					apiError(w, presentationErr.Status, presentationErr.Code, "PDF не создан: текст содержит символы, не поддерживаемые встроенным шрифтом. Исходные данные не изменены.")
+					return
+				}
 				apiError(w, presentationErr.Status, presentationErr.Code, "Не удалось сформировать демо-презентацию")
 			case errors.As(err, &storageErr):
 				apiError(w, http.StatusServiceUnavailable, "storage_unavailable", "Не удалось сохранить результат демо-действия")

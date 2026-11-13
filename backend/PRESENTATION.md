@@ -87,6 +87,10 @@ Response limits: title <=200, <=10 bullets per slide, bullet text <=1000 charact
 Input errors return 422; invalid AI output 502; unavailable AI 503; timeout 504.
 The five-slide renderer reduces font size down to 7pt. Content which still cannot
 fit returns an error rather than clipping source facts or adding extra slides.
+Before invoking fpdf, all source fields and model text are checked against the
+embedded font's Unicode BMP cmap. Non-BMP characters (for example emoji) and
+missing glyphs return 422 `unsupported_pdf_text`, with no PDF or successful
+chat result committed. Source characters are never silently stripped.
 
 ## Verification on 13.11.2026
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	_ "embed"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,8 +23,86 @@ var fpdfLicense string
 //go:embed X_IMAGE_LICENSE.txt
 var xImageLicense string
 
+// fpdf indexes UTF-8 widths through a 65536-entry table. Check the embedded
+// font's BMP cmap before any fpdf call, both to prevent non-BMP panics and to
+// reject missing glyphs instead of silently losing source characters.
+var pdfFontGlyphs = embeddedPDFGlyphs()
+
+func embeddedPDFGlyphs() [65536]bool {
+	var supported [65536]bool
+	font := goregular.TTF
+	u16 := func(offset int) int { return int(binary.BigEndian.Uint16(font[offset:])) }
+	u32 := func(offset int) int { return int(binary.BigEndian.Uint32(font[offset:])) }
+	for table := 0; table < u16(4); table++ {
+		entry := 12 + 16*table
+		if string(font[entry:entry+4]) != "cmap" {
+			continue
+		}
+		cmap := u32(entry + 8)
+		for record := 0; record < u16(cmap+2); record++ {
+			entry := cmap + 4 + 8*record
+			platform, encoding := u16(entry), u16(entry+2)
+			if platform != 0 && !(platform == 3 && encoding == 1) {
+				continue
+			}
+			sub := cmap + u32(entry+4)
+			if u16(sub) != 4 {
+				continue
+			}
+			count := u16(sub+6) / 2
+			ends := sub + 14
+			starts := ends + 2*count + 2
+			deltas := starts + 2*count
+			ranges := deltas + 2*count
+			for segment := 0; segment < count; segment++ {
+				for code := u16(starts + 2*segment); code <= u16(ends+2*segment) && code < 65535; code++ {
+					glyph := 0
+					if distance := u16(ranges + 2*segment); distance == 0 {
+						glyph = (code + u16(deltas+2*segment)) & 65535
+					} else {
+						glyph = u16(ranges + 2*segment + distance + 2*(code-u16(starts+2*segment)))
+						if glyph != 0 {
+							glyph = (glyph + u16(deltas+2*segment)) & 65535
+						}
+					}
+					if glyph != 0 {
+						supported[code] = true
+					}
+				}
+			}
+		}
+	}
+	supported['\n'] = true
+	return supported
+}
+
+func validatePDFText(d presentationDraft, tasks []presentationTask) error {
+	texts := []string{}
+	for _, task := range tasks {
+		texts = append(texts, task.Key, task.Summary, task.Description)
+	}
+	for _, slide := range d.Slides {
+		texts = append(texts, slide.Title)
+		for _, bullet := range slide.Bullets {
+			texts = append(texts, bullet.Text)
+			texts = append(texts, bullet.SourceKeys...)
+		}
+	}
+	for _, text := range texts {
+		for _, r := range text {
+			if r > 65535 || !pdfFontGlyphs[r] {
+				return &presentationError{422, "unsupported_pdf_text"}
+			}
+		}
+	}
+	return nil
+}
+
 func renderPresentation(d presentationDraft, tasks []presentationTask) ([]byte, error) {
 	if err := validatePresentation(d, tasks); err != nil {
+		return nil, err
+	}
+	if err := validatePDFText(d, tasks); err != nil {
 		return nil, err
 	}
 	pdf := fpdf.NewCustom(&fpdf.InitType{UnitStr: "mm", Size: fpdf.SizeType{Wd: 297, Ht: 167}})

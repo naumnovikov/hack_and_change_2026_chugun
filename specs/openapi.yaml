@@ -239,7 +239,7 @@ components:
       properties:
         code:
           type: string
-          enum: [invalid_request, invalid_presentation_input, incomplete_presentation, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable, request_conflict, presentation_not_found]
+          enum: [invalid_request, invalid_presentation_input, unsupported_pdf_text, incomplete_presentation, ai_unavailable, ai_timeout, ai_error, ai_invalid_response, storage_unavailable, request_conflict, presentation_not_found]
         error:
           type: string
     HealthResponse:

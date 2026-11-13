@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -69,5 +70,40 @@ func TestPresentationPDFStructureAndCyrillic(t *testing.T) {
 func TestPresentationPDFRejectsInvalidDraft(t *testing.T) {
 	if _, err := renderPresentation(presentationDraft{}, testTasks()); err == nil {
 		t.Fatal("invalid draft rendered")
+	}
+}
+
+func TestPresentationPDFRejectsUnsupportedUnicode(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*presentationTask)
+	}{
+		{"non-BMP summary", func(task *presentationTask) { task.Summary += " 🚀" }},
+		{"non-BMP source description", func(task *presentationTask) { task.Description += " 🚀" }},
+		{"non-BMP source key", func(task *presentationTask) { task.Key += "🚀" }},
+		{"missing BMP glyph", func(task *presentationTask) { task.Description += "\u0378" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tasks := testTasks()
+			tc.change(&tasks[0])
+			draft := testPresentation(tasks)
+			if err := validatePresentation(draft, tasks); err != nil {
+				t.Fatal("regression input must satisfy AI contract", err)
+			}
+			pdf, err := renderPresentation(draft, tasks)
+			var failure *presentationError
+			if len(pdf) != 0 || !errors.As(err, &failure) || failure.Status != 422 || failure.Code != "unsupported_pdf_text" {
+				t.Fatalf("expected safe unsupported-text error without PDF, got %v", err)
+			}
+		})
+	}
+	if err := validatePDFText(presentationDraft{Slides: []presentationSlide{{Title: "🚀"}}}, nil); err == nil {
+		t.Fatal("model title not checked")
+	}
+	if err := validatePDFText(presentationDraft{Slides: []presentationSlide{{Bullets: []presentationBullet{{Text: "🚀"}}}}}, nil); err == nil {
+		t.Fatal("model bullet not checked")
+	}
+	if !pdfFontGlyphs['Ё'] || !pdfFontGlyphs['я'] {
+		t.Fatal("Cyrillic glyphs unexpectedly unsupported")
 	}
 }
