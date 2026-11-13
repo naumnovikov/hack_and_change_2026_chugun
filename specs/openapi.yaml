@@ -23,7 +23,7 @@ paths:
             pattern: '^[a-zA-Z0-9_-]{8,128}$'
         - in: cookie
           name: demo_chat
-          description: Opaque server-generated demo conversation cookie; never a corporate identity.
+          description: Opaque server-generated demo session cookie with Path=/api; never a corporate identity.
           schema:
             type: string
       requestBody:
