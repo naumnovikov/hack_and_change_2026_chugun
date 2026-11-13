@@ -64,16 +64,16 @@ class Provider:
         except (KeyError, TypeError, ValueError) as exc:
             raise AIError("invalid_embedding", "Модель вернула некорректные embeddings", 502) from exc
 
-    def chat(self, messages, tools=None, structured=False):
+    def chat(self, messages, tools=None, structured=False, max_tokens=512):
         config = self.settings
         native = config.llm_provider == "ollama"
         payload = {"model": config.llm_model, "messages": messages, "stream": False}
         if native:
-            payload.update(think=False, options={"temperature": 0, "num_predict": 512})
+            payload.update(think=False, options={"temperature": 0, "num_predict": max_tokens})
             if structured:
                 payload["format"] = structured if isinstance(structured, dict) else "json"
         else:
-            payload.update(temperature=0, max_tokens=512)
+            payload.update(temperature=0, max_tokens=max_tokens)
             if structured:
                 payload["response_format"] = ({"type": "json_schema", "json_schema": {
                     "name": "grounded_answer", "strict": True, "schema": structured}}

@@ -197,6 +197,96 @@
           }
         }
       }
+    },
+    "/presentation/draft": {
+      "post": {
+        "summary": "Presentation Draft",
+        "operationId": "presentation_draft_presentation_draft_post",
+        "parameters": [
+          {
+            "name": "x-ai-internal-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Ai-Internal-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationDraft"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -369,6 +459,33 @@
         ],
         "title": "AgentToolCall"
       },
+      "Bullet": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "source_keys": {
+            "items": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Source Keys"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "source_keys"
+        ],
+        "title": "Bullet"
+      },
       "ChatRequest": {
         "properties": {
           "message": {
@@ -464,6 +581,44 @@
         ],
         "title": "MessageArgs"
       },
+      "PresentationDraft": {
+        "properties": {
+          "slides": {
+            "items": {
+              "$ref": "#/components/schemas/Slide"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 5,
+            "title": "Slides"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "slides"
+        ],
+        "title": "PresentationDraft"
+      },
+      "PresentationRequest": {
+        "properties": {
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Tasks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tasks"
+        ],
+        "title": "PresentationRequest"
+      },
       "ProposedTool": {
         "properties": {
           "call_id": {
@@ -516,6 +671,48 @@
         ],
         "title": "ServiceArgs"
       },
+      "Slide": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "title",
+              "summary",
+              "tasks",
+              "learning",
+              "next_steps"
+            ],
+            "title": "Kind"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "bullets": {
+            "items": {
+              "$ref": "#/components/schemas/Bullet"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Bullets"
+          },
+          "is_proposal": {
+            "type": "boolean",
+            "title": "Is Proposal",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "title",
+          "bullets"
+        ],
+        "title": "Slide"
+      },
       "Source": {
         "properties": {
           "title": {
@@ -539,6 +736,35 @@
           "url"
         ],
         "title": "Source"
+      },
+      "Task": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Summary"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 8000,
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "summary",
+          "description"
+        ],
+        "title": "Task"
       },
       "ToolResult": {
         "properties": {
