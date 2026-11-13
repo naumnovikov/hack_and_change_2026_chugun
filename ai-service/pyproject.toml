@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--cov=main --cov=chunking --cov=settings --cov=errors --cov=providers --cov=repository --cov=rag --cov=agent --cov=ingest --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=81"
+addopts = "--cov=main --cov=chunking --cov=settings --cov=errors --cov=providers --cov=repository --cov=rag --cov=agent --cov=ingest --cov=presentation --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=81"
 
 [tool.coverage.run]
 relative_files = true

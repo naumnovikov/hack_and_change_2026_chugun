@@ -7,6 +7,7 @@ from pydantic import HttpUrl
 from agent import Agent, AgentAnswer, AgentRequest, AgentToolCall, StrictModel, Text
 from errors import AIError
 from providers import Provider
+from presentation import Presentation, PresentationDraft, PresentationRequest
 from rag import RAG
 from repository import Repository
 from settings import Settings
@@ -73,3 +74,9 @@ def require_internal(x_ai_internal_token: str = Header(default=""), services=Dep
           dependencies=[Depends(require_internal)])
 def agent_step(request: AgentRequest, services=Depends(get_services)):
     return services[2].step(request)
+
+
+@app.post("/presentation/draft", response_model=PresentationDraft, responses=ERRORS,
+          response_model_exclude_unset=True, dependencies=[Depends(require_internal)])
+def presentation_draft(request: PresentationRequest, services=Depends(get_services)):
+    return Presentation(services[1].provider).draft(request)
