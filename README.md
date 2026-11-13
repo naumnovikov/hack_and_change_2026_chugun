@@ -17,6 +17,7 @@
 - [OpenAPI Backend](./specs/openapi.yaml)
 - [Спецификация агента](./specs/agent.spec.md)
 - [Спецификация PDF-презентации по Jira-задачам](./specs/presentation.spec.md)
+- [QA-чек-лист PDF-сценария](./docs/PRESENTATION_QA_CHECKLIST.md)
 - [AI: запуск, настройки и тесты](./ai-service/README.md)
 - [Контракт AI для Backend и результаты интеграции](./ai-service/BACKEND_HANDOFF.md)
 - [Внутренний AI API](./ai-service/openapi.yaml)
