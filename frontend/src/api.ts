@@ -1,12 +1,22 @@
-﻿import { z } from 'zod'
+import { z } from 'zod'
 
 const sourceSchema = z.object({
   title: z.string().trim().min(1),
   url: z.string().url().refine((value) => ['http:', 'https:'].includes(new URL(value).protocol)),
 }).strict()
+const attachmentSchema = z.object({
+  id: z.string().trim().min(1),
+  filename: z.string().trim().min(1),
+  content_type: z.literal('application/pdf'),
+  download_url: z.string().regex(/^\/api\/presentations\/[A-Za-z0-9_-]+$/),
+  expires_at: z.string().datetime({ offset: true }),
+}).strict()
+export type ChatAttachment = z.infer<typeof attachmentSchema>
+
 const chatResponseSchema = z.object({
   reply: z.string().trim().min(1),
   sources: z.array(sourceSchema).optional(),
+  attachment: attachmentSchema.optional(),
 }).strict()
 const errorResponseSchema = z.object({ code: z.string(), error: z.string() })
 export type ChatSource = z.infer<typeof sourceSchema>

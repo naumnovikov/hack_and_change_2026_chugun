@@ -33,7 +33,7 @@ export default function App() {
     setIsTyping(true)
     try {
       const response = await sendChatMessage(request.message, request.requestId)
-      addMessage(response.reply, 'assistant', response.sources)
+      addMessage(response.reply, 'assistant', response.sources, response.attachment)
       setRetryRequest(null)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Не удалось получить ответ. Повторите запрос, чтобы проверить результат.')
@@ -88,7 +88,7 @@ export default function App() {
             <p className="eyebrow">ПОМОЩНИК ДЛЯ ПЕРВЫХ НЕДЕЛЬ</p>
             <h2>С чего начнём?</h2>
             <p className="welcome-text">
-              Задай вопрос или попроси помочь с доступом и поиском коллеги — всё происходит в одном чате.
+              Разберись в инструментах, получи доступы и собери результаты своей работы — в одном чате.
             </p>
             <div className="suggestions" aria-label="Примеры запросов">
               <button className="suggestion" type="button" onClick={() => void handleSuggestion('Что такое SPT?')}>
@@ -97,8 +97,8 @@ export default function App() {
               <button className="suggestion" type="button" onClick={() => void handleSuggestion('Оформи демо-заявку на доступ к Jira')}>
                 Оформи доступ к Jira
               </button>
-              <button className="suggestion" type="button" onClick={() => void handleSuggestion('Найди владельца сервиса billing')}>
-                Найди владельца billing
+              <button className="suggestion" type="button" onClick={() => void handleSuggestion('Собери демо-черновик презентации по моим завершённым задачам')}>
+                Собери презентацию
               </button>
             </div>
           </div>
@@ -108,6 +108,20 @@ export default function App() {
               <li key={message.id} className={`message message-${message.role}`}>
                 <span className="message-author">{message.role === 'user' ? 'Вы' : 'AI-buddy'}</span>
                 <p>{message.content}</p>
+                {message.attachment && (
+                  <div className="attachment-card">
+                    <span className="pdf-icon" aria-hidden="true">PDF</span>
+                    <div className="attachment-details">
+                      <strong>{message.attachment.filename}</strong>
+                      <span>Демо-черновик · PDF</span>
+                      <span>Доступен до <time dateTime={message.attachment.expires_at}>
+                        {new Date(message.attachment.expires_at).toLocaleString('ru-RU')}
+                      </time></span>
+                    </div>
+                    <a className="attachment-download" href={message.attachment.download_url}
+                      download={message.attachment.filename}>Скачать PDF</a>
+                  </div>
+                )}
                 {message.sources && message.sources.length > 0 && (
                   <ul className="source-list" aria-label="Источники ответа">
                     {message.sources.map((source) => (

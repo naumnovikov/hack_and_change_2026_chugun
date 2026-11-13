@@ -1,7 +1,32 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { sendChatMessage } from './api'
+import { presentationReply } from './test/presentationFixture'
 beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
 describe('Chat API contract', () => {
+  it('accepts the optional PDF attachment from the agreed contract', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(presentationReply)))
+    await expect(sendChatMessage('Собери презентацию', 'request-pdf')).resolves.toEqual(presentationReply)
+  })
+  it.each([
+    { download_url: 'https://evil.example/file.pdf' },
+    { download_url: '//evil.example/file.pdf' },
+    { download_url: 'javascript:alert(1)' },
+    { download_url: '/api/presentations/../private' },
+    { content_type: 'text/html' },
+    { filename: '' },
+    { expires_at: 'invalid' },
+    { id: '' },
+    { extra: 'unexpected' },
+  ])('rejects malformed or unsafe attachments: %j', async (patch) => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      ...presentationReply, attachment: { ...presentationReply.attachment, ...patch },
+    })))
+    await expect(sendChatMessage('PDF', 'request-pdf')).rejects.toThrow('неожиданном формате')
+  })
+  it('accepts a plain reply without adding an attachment', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ reply: 'Обычный ответ' })))
+    await expect(sendChatMessage('Привет', 'request-plain')).resolves.toEqual({ reply: 'Обычный ответ' })
+  })
   it('sends the caller key and keeps the conversation cookie', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ reply: 'Ответ', sources: [{ title: 'Источник', url: 'https://example.org' }] })))
     await expect(sendChatMessage('Вопрос', 'stable-request-key')).resolves.toMatchObject({ reply: 'Ответ' })
