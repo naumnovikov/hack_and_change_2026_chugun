@@ -108,7 +108,10 @@ class Presentation:
 
     def draft(self, request: PresentationRequest):
         message = self.provider.chat([
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": (
+                f"{SYSTEM}\nJSON Schema (follow exactly):\n"
+                f"{json.dumps(PresentationDraft.model_json_schema(), ensure_ascii=False)}"
+            )},
             {"role": "user", "content": json.dumps(request.model_dump(), ensure_ascii=False)},
         ], structured=PresentationDraft.model_json_schema(), max_tokens=4096)
         try:

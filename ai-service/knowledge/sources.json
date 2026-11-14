@@ -14,5 +14,29 @@
     "source_revision": "0c1d2aa1501ca6889357908f54b12695f0534e48",
     "source_type": "public",
     "content_kind": "editorial_summary"
+  },
+  {
+    "document_id": "avito-glossary",
+    "filename": "glossary.md",
+    "source_url": "https://github.com/avito-tech/playbook/tree/0c1d2aa1501ca6889357908f54b12695f0534e48",
+    "source_revision": "0c1d2aa1501ca6889357908f54b12695f0534e48",
+    "source_type": "public",
+    "content_kind": "editorial_summary"
+  },
+  {
+    "document_id": "avito-developer-principles",
+    "filename": "developer-workflow.md",
+    "source_url": "https://github.com/avito-tech/playbook/blob/0c1d2aa1501ca6889357908f54b12695f0534e48/development-principles.md",
+    "source_revision": "0c1d2aa1501ca6889357908f54b12695f0534e48",
+    "source_type": "public",
+    "content_kind": "editorial_summary"
+  },
+  {
+    "document_id": "avito-team-processes",
+    "filename": "team-processes.md",
+    "source_url": "https://github.com/avito-tech/playbook/blob/0c1d2aa1501ca6889357908f54b12695f0534e48/processes-and-standards.md",
+    "source_revision": "0c1d2aa1501ca6889357908f54b12695f0534e48",
+    "source_type": "public",
+    "content_kind": "editorial_summary"
   }
 ]

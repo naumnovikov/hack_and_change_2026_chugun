@@ -15,11 +15,13 @@ def source():
     return Source.model_validate(json.loads((KNOWLEDGE / "sources.json").read_text("utf-8"))[0])
 
 
-def test_real_corpus_has_six_sections_and_pinned_sources():
+def test_real_corpus_has_curated_sections_and_pinned_sources():
     chunks = load_corpus(KNOWLEDGE)
-    assert len(chunks) == 6
-    assert {chunk.document_id for chunk in chunks} == {"avito-spt", "avito-tdr"}
-    assert len({chunk.chunk_id for chunk in chunks}) == 6
+    assert len(chunks) >= 15
+    assert {chunk.document_id for chunk in chunks} == {
+        "avito-spt", "avito-tdr", "avito-glossary",
+        "avito-developer-principles", "avito-team-processes"}
+    assert len({chunk.chunk_id for chunk in chunks}) == len(chunks)
     for chunk in chunks:
         assert chunk.source_revision in str(chunk.source_url)
         assert chunk.source_type == "public"
