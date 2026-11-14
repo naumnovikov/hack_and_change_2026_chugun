@@ -373,14 +373,16 @@ def test_general_work_questions_use_rag_without_action_tools(message):
     ))
 
     assert result["reply"] == "Ответ по источникам."
-    rag.answer.assert_called_once_with(message, [])
+    rag.answer.assert_called_once_with(message)
     provider.chat.assert_not_called()
 
 
 def test_employee_lookup_tool_requires_explicit_owner_intent_and_known_service():
     provider = call_provider("find_employee", {"service_name": "billing"})
     request = agent_request(
-        message="Who owns billing?", explicit_access_request=False, allowed_services=["billing"],
+        message="Найди владельца сервиса billing для ревью.",
+        explicit_access_request=False,
+        allowed_services=["billing"],
     )
 
     result = Agent(provider, Mock()).step(request)

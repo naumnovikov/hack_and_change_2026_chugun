@@ -28,7 +28,11 @@ def test_term_queries_share_retrieval_and_skip_tool_routing(question):
     })
     result = Agent(provider, rag).step(request)
     assert result["kind"] == "answer" and result["sources"]
-    provider.embed.assert_called_once_with(["Что такое SPT?"])
+    provider.embed.assert_called_once()
+    retrieval_query = provider.embed.call_args.args[0][0]
+    assert retrieval_query.startswith("Что такое SPT?")
+    assert "support" in retrieval_query
+    assert "обращения пользователей" in retrieval_query
     provider.chat.assert_called_once()
     assert "tools" not in provider.chat.call_args.kwargs
     assert json.loads(provider.chat.call_args.args[0][1]["content"])["question"] == question

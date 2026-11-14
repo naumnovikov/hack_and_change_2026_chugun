@@ -142,8 +142,13 @@ class Agent:
                 and request.history[-2].role == "user"
                 and request.history[-1].role == "assistant"):
             history = [{"user": request.history[-2].content, "assistant": request.history[-1].content}]
+        result = (
+            self.rag.answer(request.message, history)
+            if history
+            else self.rag.answer(request.message)
+        )
         return {"kind": "answer", "state": "answer",
-                **self.rag.answer(request.message, history)}
+                **result}
 
     def step(self, request: AgentRequest):
         if any(word in request.message.casefold() for word in
