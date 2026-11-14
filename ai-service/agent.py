@@ -1,6 +1,7 @@
 """AI proposes tools; only the trusted Go coordinator may execute them."""
 import hashlib
 import json
+import re
 from datetime import datetime
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
@@ -104,6 +105,14 @@ class MessageResult(StrictModel):
 ARGUMENTS = {"create_access_request": ServiceArgs, "find_employee": ServiceArgs, "send_message": MessageArgs}
 RESULTS = {"create_access_request": AccessResult, "find_employee": EmployeeResult, "send_message": MessageResult}
 
+# Only a whole explicit lookup command exposes the legacy read-only tool.
+# Definitions, negations, quoted commands and discussion do not grant intent.
+EMPLOYEE_LOOKUP = re.compile(
+    r"(?:пожалуйста[, ]+)?(?:найди|покажи)\s+(?:мне\s+)?"
+    r"(?:владельца|ответственного)\s+(?:сервиса\s+)?[a-z][a-z0-9_-]*"
+    r"(?:\s+для\s+ревью)?[.!]?", re.I)
+ACCESS_COMMAND = re.compile(r"(?:создай|оформи|запроси)\s+.*(?:доступ|заявк)", re.I)
+
 
 def answer(reply, state="answer"):
     return {"kind": "answer", "state": state, "reply": reply, "sources": []}
@@ -136,11 +145,22 @@ class Agent:
                           "Подготовь текст запроса на ревью и подтверди получателя и полный текст.", "draft")
         if request.tool_steps >= 3:
             return answer("Достигнут лимит трёх действий. Уточни следующий шаг с наставником.", "limit")
+        permitted = set()
+        if request.explicit_access_request:
+            permitted.add("create_access_request")
+        if request.confirmed_message is not None:
+            permitted.add("send_message")
+        if EMPLOYEE_LOOKUP.fullmatch(request.message.strip()):
+            permitted.add("find_employee")
+        if not permitted:
+            if (ACCESS_COMMAND.match(request.message.strip())
+                    or request.message.casefold().strip() == "подтверждаю"):
+                return answer("Уточни желаемое действие и сервис. Для отправки сообщения нужно "
+                              "подтвердить сохранённый черновик.", "clarification")
+            return {"kind": "answer", "state": "answer", **self.rag.answer(request.message)}
         tools = []
         for name, model in ARGUMENTS.items():
-            if name == "send_message" and not request.confirmed_message:
-                continue
-            if name == "create_access_request" and not request.explicit_access_request:
+            if name not in permitted:
                 continue
             tools.append({"type": "function", "function": {
                 "name": name, "description": "Предложение демо-действия для проверки Go. "
@@ -177,11 +197,15 @@ class Agent:
             args = ARGUMENTS[name].model_validate_json(raw) if isinstance(raw, str) else ARGUMENTS[name].model_validate(raw)
         except (KeyError, TypeError, ValidationError) as exc:
             raise AIError("invalid_tool_call", "Модель предложила недопустимый инструмент или аргументы", 502) from exc
+        # A model can return a tool that was not offered; enforce intent again.
+        if name not in permitted:
+            if name == "send_message":
+                return answer("Сначала подтверди проверенного получателя и полный текст сообщения.",
+                              "confirmation_required")
+            return answer("Это действие не было явно запрошено. Уточни желаемое действие.", "clarification")
         if isinstance(args, ServiceArgs):
             if args.service_name not in request.allowed_services:
                 return answer("Сервис недоступен или не определён. Уточни его у наставника.", "denied")
-            if name == "create_access_request" and not request.explicit_access_request:
-                return answer("Создание заявки требует явного запроса пользователя.", "clarification")
         elif args.recipient_id not in request.allowed_recipients or request.confirmed_message != args:
             return answer("Сначала подтверди проверенного получателя и полный текст сообщения.", "confirmation_required")
         key = json.dumps([request.user_context.user_id, request.conversation_id,
