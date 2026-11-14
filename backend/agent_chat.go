@@ -30,6 +30,11 @@ type agentMessage struct {
 	Text        string `json:"text"`
 }
 
+type agentConversationTurn struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type agentToolResult struct {
 	CallID string         `json:"call_id"`
 	Name   string         `json:"name"`
@@ -38,16 +43,17 @@ type agentToolResult struct {
 }
 
 type agentStepRequest struct {
-	RequestID             string           `json:"request_id"`
-	ConversationID        string           `json:"conversation_id"`
-	Message               string           `json:"message"`
-	UserContext           agentUserContext `json:"user_context"`
-	ToolSteps             int              `json:"tool_steps"`
-	AllowedServices       []string         `json:"allowed_services"`
-	AllowedRecipients     []string         `json:"allowed_recipients"`
-	ExplicitAccessRequest bool             `json:"explicit_access_request"`
-	ConfirmedMessage      *agentMessage    `json:"confirmed_message,omitempty"`
-	ToolResult            *agentToolResult `json:"tool_result,omitempty"`
+	RequestID             string                  `json:"request_id"`
+	ConversationID        string                  `json:"conversation_id"`
+	Message               string                  `json:"message"`
+	History               []agentConversationTurn `json:"history,omitempty"`
+	UserContext           agentUserContext        `json:"user_context"`
+	ToolSteps             int                     `json:"tool_steps"`
+	AllowedServices       []string                `json:"allowed_services"`
+	AllowedRecipients     []string                `json:"allowed_recipients"`
+	ExplicitAccessRequest bool                    `json:"explicit_access_request"`
+	ConfirmedMessage      *agentMessage           `json:"confirmed_message,omitempty"`
+	ToolResult            *agentToolResult        `json:"tool_result,omitempty"`
 }
 
 type proposedAgentTool struct {
@@ -144,6 +150,17 @@ func validAgentSources(sources []Source) bool {
 		link, err := url.Parse(source.URL)
 		if strings.TrimSpace(source.Title) == "" || err != nil || link.Host == "" ||
 			(link.Scheme != "http" && link.Scheme != "https") {
+			return false
+		}
+	}
+	return true
+}
+
+func validConversationSources(sources []Source) bool {
+	for _, source := range sources {
+		link, err := url.Parse(source.URL)
+		if err != nil || link.Scheme != "https" || link.Host != "github.com" ||
+			!strings.HasPrefix(link.Path, "/avito-tech/playbook/") {
 			return false
 		}
 	}
@@ -276,8 +293,32 @@ func (s PostgresStore) processAgent(ctx context.Context, session, requestID, mes
 		}
 	}
 
+	var history []agentConversationTurn
+	if !expired {
+		var previousTurnMessage string
+		var previousTurnResponse []byte
+		err = tx.QueryRowContext(ctx, `SELECT message,response FROM demo_chat_results
+			WHERE session_id=$1 ORDER BY created_at DESC LIMIT 1`, session).
+			Scan(&previousTurnMessage, &previousTurnResponse)
+		if err != nil && err != sql.ErrNoRows {
+			return ChatResponse{}, false, &agentStorageError{err}
+		}
+		if err == nil {
+			var previousTurn ChatResponse
+			if json.Unmarshal(previousTurnResponse, &previousTurn) == nil &&
+				strings.TrimSpace(previousTurn.Reply) != "" &&
+				validConversationSources(previousTurn.Sources) {
+				history = []agentConversationTurn{
+					{Role: "user", Content: previousTurnMessage},
+					{Role: "assistant", Content: previousTurn.Reply},
+				}
+			}
+		}
+	}
+
 	request := agentStepRequest{
 		RequestID: requestID, ConversationID: session, Message: message,
+		History:               history,
 		UserContext:           agentUserContext{UserID: "demo-intern-001", Role: "Intern", TeamID: "demo-team", OnboardingWeek: 1},
 		AllowedServices:       []string{"Jira", "Confluence", "billing", "search"},
 		AllowedRecipients:     []string{"demo-owner-billing", "demo-owner-search"},

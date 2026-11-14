@@ -8,13 +8,17 @@ Python предлагает инструменты, но не выполняет
 
 POST /chat принимает только {message}, 1–8000 символов после trim.
 Ответ: {reply, sources: [{title, url}]}. Совместим с предложением Backend
-из feat/backend-postgres-chat. Endpoint использует только публичный корпус,
-не принимает user_id, историю, права или закрытые материалы из браузера.
+из feat/backend-postgres-chat. Endpoint использует только публичный корпус
+и не принимает user_id, права или закрытые материалы из браузера. Последний
+обмен диалога передаётся только внутреннему /agent/step; он помогает понять
+короткое продолжение («подробнее», «что дальше»), но не является источником фактов.
 
 Embeddings: Ollama embeddinggemma, 768 измерений. Есть OpenAI-совместимые
 /embeddings и /chat/completions через env. В контекст попадает top_k чанков,
 удовлетворяющих порогу cosine distance. Для латинских терминов дополнительно
-нужно точное совпадение слова в тексте чанка.
+нужно точное совпадение слова в тексте чанка или алиасе из явно заданной
+группы синонимов. Перед embedding запрос дополняется только вариантами
+известных алиасов; произвольная семантическая подмена не применяется.
 Модель выдаёт JSON по схеме GroundedAnswer. Внутренние ссылки C1/C2/C3 и цитаты
 проверяются по найденным фрагментам, пробелы нормализуются. URL берёт Python
 из metadata, не из генерации. Проверка цитаты не доказывает все утверждения
@@ -31,9 +35,11 @@ embedding-модель и размерность; векторная колон�
 Смена модели/размерности требует новой индексации. Замена весов под прежним
 тегом также требует ingest; автоматической проверки digest нет.
 Порог по умолчанию 0.35 — начальная настройка для малого корпуса, не универсальная
-оценка качества. Полный перебор подходит шести чанкам; ANN-индекс не добавляется.
-Поддерживаются только public/editorial_summary. Неизвестные типы не становятся
-публичными автоматически. Закрытый RAG потребует отдельной ACL-схемы и фильтрации.
+оценка качества. Для небольшого curated-корпуса используется полный перебор;
+ANN-индекс не добавляется.
+Поддерживаются только public/editorial_summary из открытых публикаций
+AvitoTech Playbook. Неизвестные типы не становятся публичными автоматически.
+Закрытый RAG потребует отдельной ACL-схемы и фильтрации.
 
 ## Внутренний /agent/step
 
@@ -42,8 +48,9 @@ X-AI-Internal-Token. Это credential Go -> AI, не пользовательс
 Go использует существующий IAM и не отдаёт credential браузеру. AI размещается
 в закрытой сети; на недоверенном канале нужен TLS. При пустом token endpoint отключён.
 
-Запрос: request_id, conversation_id, message, user_context (user_id, role
-Intern/Mentor, team_id, onboarding_week), tool_steps (0 по умолчанию),
+Запрос: request_id, conversation_id, message, history (только предыдущий обмен,
+загруженный Go), user_context (user_id, role Intern/Mentor, team_id,
+onboarding_week), tool_steps (0 по умолчанию),
 allowed_services, allowed_recipients, explicit_access_request, confirmed_message,
 tool_result. Полные required/типы и ограничения — в OpenAPI.
 Все поля, кроме message, формирует доверенный Go. Произвольная история и
@@ -52,7 +59,10 @@ tool_result. Полные required/типы и ограничения — в Ope
 Ответ kind=answer: state, reply, sources. kind=tool_call дополнительно содержит
 tool_call {call_id,name,arguments}. Это предложение, не выполненное действие.
 Разрешены create_access_request(service_name), find_employee(service_name),
-send_message(recipient_id,text). Лишние аргументы (включая user_id) запрещены.
+send_message(recipient_id,text). Поиск владельца предлагается только при явном
+вопросе о владельце/ответственном и известном demo-сервисе; общие вопросы
+направляются прямо в grounded RAG без action tools. Лишние аргументы (включая
+user_id) запрещены.
 За вызов — одно предложение, при tool_steps>=3 новые tools не предлагаются.
 Для заявки нужны explicit_access_request от Go и сервис из allowed_services.
 Для сообщения нужны allowed_recipients и точное совпадение с confirmed_message.

@@ -2,6 +2,7 @@
 import hashlib
 import math
 import re
+from urllib.parse import urlparse
 import httpx
 from errors import AIError
 from settings import Settings
@@ -52,12 +53,19 @@ class Provider:
                 vectors.append(validate_vector(vector, config.embedding_dimensions))
             return vectors
         native = config.llm_provider == "ollama"
+        google_compatible = urlparse(config.llm_base_url).hostname == "generativelanguage.googleapis.com"
         data = self._post("/api/embed" if native else "/embeddings", {
             "model": config.embedding_model, "input": texts,
+            **({"dimensions": config.embedding_dimensions} if google_compatible else {}),
         })
         try:
-            vectors = data["embeddings"] if native else [
-                item["embedding"] for item in sorted(data["data"], key=lambda item: item["index"])]
+            if native:
+                vectors = data["embeddings"]
+            else:
+                items = data["data"]
+                if items and all("index" in item for item in items):
+                    items = sorted(items, key=lambda item: item["index"])
+                vectors = [item["embedding"] for item in items]
             if len(vectors) != len(texts):
                 raise ValueError("batch length")
             return [validate_vector(vector, config.embedding_dimensions) for vector in vectors]
@@ -67,6 +75,7 @@ class Provider:
     def chat(self, messages, tools=None, structured=False, max_tokens=512):
         config = self.settings
         native = config.llm_provider == "ollama"
+        google_compatible = urlparse(config.llm_base_url).hostname == "generativelanguage.googleapis.com"
         payload = {"model": config.llm_model, "messages": messages, "stream": False}
         if native:
             payload.update(think=False, options={"temperature": 0, "num_predict": max_tokens})
@@ -75,9 +84,11 @@ class Provider:
         else:
             payload.update(temperature=0, max_tokens=max_tokens)
             if structured:
-                payload["response_format"] = ({"type": "json_schema", "json_schema": {
-                    "name": "grounded_answer", "strict": True, "schema": structured}}
-                    if isinstance(structured, dict) else {"type": "json_object"})
+                payload["response_format"] = (
+                    {"type": "json_object"} if google_compatible or not isinstance(structured, dict)
+                    else {"type": "json_schema", "json_schema": {
+                        "name": "grounded_answer", "strict": True, "schema": structured}}
+                )
         if tools:
             payload["tools"] = tools
         data = self._post("/api/chat" if native else "/chat/completions", payload)

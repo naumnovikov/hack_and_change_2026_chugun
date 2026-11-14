@@ -32,7 +32,40 @@ def fake_provider(response, provider="ollama", dimensions=3):
     ("openai", {"data": [{"index": 0, "embedding": [1, 2, 3]}]}),
 ])
 def test_embeddings_adapters(provider, data):
-    assert fake_provider(data, provider).embed(["SPT"]) == [[1, 2, 3]]
+    model = fake_provider(data, provider)
+    assert model.embed(["SPT"]) == [[1, 2, 3]]
+
+
+@pytest.mark.parametrize("provider,base_url,expected_dimensions", [
+    ("ollama", "http://ollama:11434/v1", None),
+    ("openai", "https://generativelanguage.googleapis.com/v1beta/openai/", 3),
+    ("openai", "https://api.openai.com/v1", None),
+])
+def test_embeddings_send_expected_dimensions(provider, base_url, expected_dimensions):
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        data = {"embeddings": [[1, 2, 3]]} if provider == "ollama" else {
+            "data": [{"index": 0, "embedding": [1, 2, 3]}]}
+        return httpx.Response(200, json=data)
+
+    model = Provider(
+        Settings(llm_provider=provider, llm_base_url=base_url, embedding_dimensions=3),
+        httpx.MockTransport(handler),
+    )
+    model.embed(["SPT"])
+
+    assert seen[0].get("dimensions") == expected_dimensions
+
+
+def test_openai_embeddings_preserve_order_when_provider_omits_indices():
+    response = {"data": [
+        {"object": "embedding", "embedding": [1, 0, 0]},
+        {"object": "embedding", "embedding": [0, 1, 0]},
+    ]}
+    assert fake_provider(response, provider="openai").embed(["first", "second"]) == [
+        [1, 0, 0], [0, 1, 0]]
 
 
 @pytest.mark.parametrize("data", [{}, {"embeddings": []}, {"embeddings": [[0, 0, 0]]},
@@ -69,6 +102,59 @@ def test_chat_adapters_send_tools_and_json_format(provider, data, structured):
     assert output == {"content": "ok"}
     assert seen[0]["tools"] and not seen[0]["stream"]
     assert ("format" if provider == "ollama" else "response_format") in seen[0]
+
+
+def test_provider_sends_configured_api_key_as_bearer():
+    seen = []
+
+    def handler(request):
+        seen.append(request.headers.get("Authorization"))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    provider = Provider(
+        Settings(llm_provider="openai", llm_api_key="test-key"),
+        httpx.MockTransport(handler),
+    )
+    provider.chat([])
+
+    assert seen == ["Bearer test-key"]
+
+
+def test_google_openai_compatible_structured_chat_uses_json_object():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    provider = Provider(
+        Settings(
+            llm_provider="openai",
+            llm_base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        ),
+        httpx.MockTransport(handler),
+    )
+    provider.chat([], structured={"type": "object"})
+
+    assert seen[0]["response_format"] == {"type": "json_object"}
+
+
+def test_other_openai_compatible_structured_chat_keeps_json_schema():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    schema = {"type": "object", "properties": {"reply": {"type": "string"}}}
+    provider = Provider(
+        Settings(llm_provider="openai", llm_base_url="https://api.openai.com/v1"),
+        httpx.MockTransport(handler),
+    )
+    provider.chat([], structured=schema)
+
+    assert seen[0]["response_format"]["type"] == "json_schema"
+    assert seen[0]["response_format"]["json_schema"]["schema"] == schema
 
 
 @pytest.mark.parametrize("data", [{}, {"message": []}, {"choices": []}])
@@ -112,6 +198,65 @@ def test_rag_answer_and_source_are_grounded(chunks):
     assert "SPT" in result["reply"]
     assert result["sources"][0]["url"] == str(chunks[0].source_url)
     assert "system" == provider.chat.call_args.args[0][0]["role"]
+    assert "По открытой публикации AvitoTech Playbook:" in result["reply"]
+
+
+def test_rag_expands_curated_synonyms_before_embedding(chunks):
+    provider = grounded_provider(chunks[0])
+    repo = Mock(search=Mock(return_value=[chunks[0]]))
+    RAG(provider, repo).answer("Как разобраться с таской?")
+    query = provider.embed.call_args.args[0][0]
+    assert "задача" in query
+    assert "task" in query
+
+
+def test_rag_uses_prior_turn_to_resolve_short_followup(chunks):
+    provider = grounded_provider(chunks[0])
+    repo = Mock(search=Mock(return_value=[chunks[0]]))
+    history = [{"user": "Что значит SPT?", "assistant": "SPT — процесс работы с обращениями."}]
+
+    RAG(provider, repo).answer("подробнее", history)
+
+    query = provider.embed.call_args.args[0][0]
+    assert "Что значит SPT?" in query
+    prompt = json.loads(provider.chat.call_args.args[0][1]["content"])
+    assert prompt["history"] == history
+    assert prompt["question"] == "подробнее"
+
+
+@pytest.mark.parametrize("question", ["А как её сдавать?", "А как таску сдавать?"])
+def test_rag_uses_prior_turn_for_task_followups(chunks, question):
+    provider = grounded_provider(chunks[0])
+    repo = Mock(search=Mock(return_value=[chunks[0]]))
+    history = [{
+        "user": "Давай сделаем задачу: написать новую фичу",
+        "assistant": "Для запроса на новую возможность используется тип обращения Feature.",
+    }]
+
+    RAG(provider, repo).answer(question, history)
+
+    query = provider.embed.call_args.args[0][0]
+    assert "Предыдущий вопрос:" in query
+    assert history[0]["user"] in query
+
+
+def test_rag_does_not_apply_old_context_to_new_task_question(chunks):
+    provider = grounded_provider(chunks[0])
+    repo = Mock(search=Mock(return_value=[chunks[0]]))
+    history = [{"user": "Что значит SPT?", "assistant": "SPT — процесс работы с обращениями."}]
+
+    RAG(provider, repo).answer("давай сделаем задачу: написать новую фичу", history)
+
+    query = provider.embed.call_args.args[0][0]
+    assert "Предыдущий вопрос:" not in query
+    assert "написать новую фичу" in query
+
+
+def test_rag_accepts_known_latin_alias_instead_of_exact_source_token(chunks):
+    provider = grounded_provider(chunks[0])
+    repo = Mock(search=Mock(return_value=[chunks[0]]))
+    result = RAG(provider, repo).answer("Что означает support?")
+    assert result["sources"]
 
 
 @pytest.mark.parametrize("question,found", [("Что такое SPT?", False), ("Что такое ZBP?", True)])
@@ -192,6 +337,59 @@ def test_agent_requires_access_intent_and_allowed_service():
     assert agent.step(agent_request(allowed_services=[]))["state"] == "denied"
 
 
+@pytest.mark.parametrize("message", [
+    "Как сделать доступ?",
+    "Как оформить заявку?",
+    "Нужен доступ к Jira",
+])
+def test_access_help_explains_how_to_make_demo_request(message):
+    provider = call_provider()
+    rag = Mock()
+
+    result = Agent(provider, rag).step(agent_request(
+        message=message, explicit_access_request=False,
+    ))
+
+    assert result["state"] == "clarification"
+    assert "Оформи доступ к Jira" in result["reply"]
+    assert "Оформи доступ к Confluence" in result["reply"]
+    assert "не выдаст реальный доступ" in result["reply"]
+    provider.chat.assert_not_called()
+    rag.answer.assert_not_called()
+
+
+@pytest.mark.parametrize("message", [
+    "Давай сделаем задачу: написать новую фичу",
+    "Как сдавать PR?",
+    "Что дальше делать?",
+])
+def test_general_work_questions_use_rag_without_action_tools(message):
+    provider = call_provider()
+    rag = Mock()
+    rag.answer.return_value = {"reply": "Ответ по источникам.", "sources": []}
+
+    result = Agent(provider, rag).step(agent_request(
+        message=message, explicit_access_request=False, allowed_services=[],
+    ))
+
+    assert result["reply"] == "Ответ по источникам."
+    rag.answer.assert_called_once_with(message, [])
+    provider.chat.assert_not_called()
+
+
+def test_employee_lookup_tool_requires_explicit_owner_intent_and_known_service():
+    provider = call_provider("find_employee", {"service_name": "billing"})
+    request = agent_request(
+        message="Who owns billing?", explicit_access_request=False, allowed_services=["billing"],
+    )
+
+    result = Agent(provider, Mock()).step(request)
+
+    assert result["kind"] == "tool_call"
+    tools = provider.chat.call_args.kwargs["tools"]
+    assert [tool["function"]["name"] for tool in tools] == ["find_employee"]
+
+
 def test_message_requires_exact_confirmation_and_verified_recipient():
     args = {"recipient_id": "demo-2", "text": "Посмотри PR"}
     agent = Agent(call_provider("send_message", args), Mock())
@@ -267,6 +465,28 @@ def test_agent_demo_uses_grounded_rag_only():
     assert Agent(Provider(Settings(llm_provider="demo")), rag).step(agent_request())["kind"] == "answer"
 
 
+def test_agent_passes_recent_turn_for_followup_questions():
+    rag = Mock()
+    rag.answer.return_value = {"reply": "Подробный ответ", "sources": []}
+    request = agent_request(
+        message="подробнее",
+        explicit_access_request=False,
+        history=[
+            {"role": "user", "content": "Что значит SPT?"},
+            {"role": "assistant", "content": "SPT — процесс работы с обращениями."},
+        ],
+    )
+    provider = Mock(settings=Settings())
+    provider.chat.return_value = {"content": ""}
+
+    response = Agent(provider, rag).step(request)
+
+    assert response["reply"] == "Подробный ответ"
+    rag.answer.assert_called_once_with("подробнее", [
+        {"user": "Что значит SPT?", "assistant": "SPT — процесс работы с обращениями."}
+    ])
+
+
 def test_http_internal_boundary_and_safe_errors():
     config = Settings(ai_internal_token="x" * 32)
     rag, agent = Mock(), Mock()
@@ -298,7 +518,7 @@ def test_service_wiring_and_environment(monkeypatch):
 def test_ingest_is_repeatable_and_replaces_after_embedding(chunks):
     provider, repository = Mock(), Mock()
     provider.embed.return_value = [[1, 2, 3]] * len(chunks)
-    assert ingest(Settings(), provider, repository) == 6
+    assert ingest(Settings(), provider, repository) == len(chunks)
     repository.replace.assert_called_once()
     provider.embed.side_effect = AIError("model_unavailable", "Нет модели")
     repository.reset_mock()

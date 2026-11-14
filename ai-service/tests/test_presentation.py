@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app, get_services
-from presentation import PROPOSAL, TITLES
+from presentation import PROPOSAL, PresentationDraft, TITLES
 from providers import Provider
 from settings import Settings
 
@@ -56,6 +56,7 @@ def test_draft_and_provider_request(client_factory, provider):
     result = post(client_factory(handler, provider=provider))
     assert result.status_code == 200
     assert result.json() == valid_draft()
+    assert json.dumps(PresentationDraft.model_json_schema(), ensure_ascii=False) in seen[0]["messages"][0]["content"]
     assert json.loads(seen[0]["messages"][1]["content"]) == TASKS
     assert (seen[0]["options"]["num_predict"] if provider == "ollama" else seen[0]["max_tokens"]) == 4096
     assert "tools" not in seen[0]

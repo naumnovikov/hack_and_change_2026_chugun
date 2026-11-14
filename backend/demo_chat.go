@@ -19,8 +19,10 @@ const demoSchema = `CREATE TABLE IF NOT EXISTS demo_chat_sessions (
 );
 CREATE TABLE IF NOT EXISTS demo_chat_results (
  session_id TEXT NOT NULL REFERENCES demo_chat_sessions(id), request_id TEXT NOT NULL,
- message TEXT NOT NULL, response JSONB NOT NULL, PRIMARY KEY(session_id,request_id)
-);`
+ message TEXT NOT NULL, response JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ PRIMARY KEY(session_id,request_id)
+);
+ALTER TABLE demo_chat_results ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();`
 
 type demoState struct {
 	Kind      string `json:"kind,omitempty"`

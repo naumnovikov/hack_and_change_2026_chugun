@@ -54,6 +54,11 @@ func TestAgentChatIntegration(t *testing.T) {
 			accessTicket, _ = input.ToolResult.Result["ticket_id"].(string)
 			writeJSON(w, http.StatusOK, agentStepResponse{Kind: "answer", State: "answer", Reply: "Access request saved", Sources: []Source{}})
 		case input.Message == "Who owns billing?" && input.ToolResult == nil:
+			if len(input.History) != 2 || input.History[0].Role != "user" ||
+				input.History[0].Content != "Создай мне заявку на доступ к Jira" ||
+				input.History[1].Role != "assistant" {
+				t.Errorf("missing previous conversation turn: %+v", input.History)
+			}
 			writeJSON(w, http.StatusOK, agentStepResponse{
 				Kind: "tool_call", State: "proposed", Reply: "proposal",
 				ToolCall: &proposedAgentTool{CallID: "owner-call-1", Name: "find_employee", Arguments: json.RawMessage(`{"service_name":"billing"}`)},
@@ -195,5 +200,25 @@ func TestAgentChatRequiresLongToken(t *testing.T) {
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", recorder.Code)
+	}
+}
+
+func TestConversationHistoryOnlyIncludesAvitoPlaybookSources(t *testing.T) {
+	tests := []struct {
+		name    string
+		sources []Source
+		want    bool
+	}{
+		{name: "source-less clarification", want: true},
+		{name: "Avito Playbook", sources: []Source{{Title: "SPT", URL: "https://github.com/avito-tech/playbook/blob/main/spt.md"}}, want: true},
+		{name: "external source", sources: []Source{{Title: "Other", URL: "https://example.com/doc"}}, want: false},
+		{name: "workspace source", sources: []Source{{Title: "Case", URL: "https://github.com/naumnovikov/hack_and_change_2026_chugun/blob/main/docs/FAQ.md"}}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validConversationSources(tt.sources); got != tt.want {
+				t.Fatalf("validConversationSources() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
