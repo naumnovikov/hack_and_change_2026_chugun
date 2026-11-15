@@ -56,7 +56,29 @@ if [[ ! -f .env ]]; then
 fi
 
 docker compose config -q
-docker compose up -d postgres ollama
+# Use the AI image's Python to parse Compose JSON; no host Python dependency.
+docker compose build ai-service
+summary="$(docker compose config --format json | docker compose run --rm -T --no-deps ai-service python -c '
+import json,sys
+from urllib.parse import urlparse
+c=json.load(sys.stdin); e=c["services"]["ai-service"]["environment"]
+t=c["services"]["backend"]["environment"].get("AI_INTERNAL_TOKEN", "")
+print(len(t)); print(int(e["LLM_PROVIDER"]=="ollama" and urlparse(e["LLM_BASE_URL"]).hostname=="ollama"))
+print(e["LLM_MODEL"]); print(e["EMBEDDING_MODEL"])
+')"
+token_length="$(printf '%s\n' "$summary" | sed -n '1p')"
+local_ollama="$(printf '%s\n' "$summary" | sed -n '2p')"
+llm_model="$(printf '%s\n' "$summary" | sed -n '3p')"
+embedding_model="$(printf '%s\n' "$summary" | sed -n '4p')"
+if [[ "$token_length" == 0 ]]; then
+  AI_INTERNAL_TOKEN="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+  export AI_INTERNAL_TOKEN
+  printf 'Для этого запуска создан общий внутренний токен Go/AI; .env не изменён.\n'
+elif [[ "$token_length" -lt 32 ]]; then
+  fail 'AI_INTERNAL_TOKEN должен содержать минимум 32 символа.'
+fi
+if [[ "$local_ollama" == 1 ]]; then docker compose up -d postgres ollama
+else docker compose up -d postgres; fi
 
 wait_for_service() {
   local service="$1"
@@ -72,26 +94,32 @@ wait_for_service() {
 
 printf 'Ожидание PostgreSQL...\n'
 wait_for_service postgres pg_isready
-printf 'Ожидание Ollama...\n'
-wait_for_service ollama ollama list
+if [[ "$local_ollama" == 1 ]]; then
+  printf 'Ожидание Ollama...\n'
+  wait_for_service ollama ollama list
+fi
 
 ensure_model() {
   local model="$1"
   local models
   models="$(docker compose exec -T ollama ollama list)"
-  if ! printf '%s\n' "$models" | awk -v model="$model" '$1 == model { found=1 } END { exit !found }'; then
+  local canonical="$model"
+  [[ "$canonical" == *:* ]] || canonical="${canonical}:latest"
+  if ! printf '%s\n' "$models" | awk -v model="$canonical" '$1 == model { found=1 } END { exit !found }'; then
     printf 'Загрузка модели %s (первый запуск может занять время)...\n' "$model"
     docker compose exec -T ollama ollama pull "$model"
   fi
 }
 
-ensure_model qwen3.5:4b
-ensure_model embeddinggemma
+if [[ "$local_ollama" == 1 ]]; then
+  ensure_model "$llm_model"
+  ensure_model "$embedding_model"
+fi
 
 printf 'Индексация базы знаний...\n'
 docker compose run --build --rm --no-deps ai-service python -m ingest
 
 printf 'Сборка и запуск приложения...\n'
-docker compose up -d --build
+docker compose up -d --build --no-deps backend ai-service frontend
 docker compose ps
 printf '\nГотово. Откройте http://localhost:3000\n'

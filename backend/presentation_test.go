@@ -156,6 +156,11 @@ func TestPresentationClient(t *testing.T) {
 }
 
 func TestPresentationIntent(t *testing.T) {
+	for _, s := range []string{"Сделай презентацию по моим задачам", "Сгенерируй презентацию", "Пожалуйста, подготовь слайды по итогам моей работы", "Собери презентацию, пожалуйста"} {
+		if !explicitPresentation.MatchString(s) {
+			t.Errorf("explicit presentation request rejected: %s", s)
+		}
+	}
 	for _, s := range []string{"Создай презентацию", "Подготовь мне PDF-презентацию по моим завершённым задачам", "Собери черновик презентации", "Собери демо-черновик презентации по моим завершённым задачам"} {
 		if !explicitPresentation.MatchString(s) {
 			t.Errorf("command rejected: %s", s)
