@@ -25,8 +25,23 @@
 
 ## Требования
 
-- Docker Desktop с Docker Compose.
+- Docker Engine или Docker Desktop с Docker Compose plugin.
 - Свободные локальные порты или их переопределение в `.env`.
+
+### Установка Docker по платформам
+
+Установите Docker один раз и проверьте, что доступны и Docker, и Compose:
+
+```text
+docker --version
+docker compose version
+```
+
+- **macOS:** установите [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Выберите сборку для Apple silicon или Intel в соответствии с процессором Mac. Docker Compose входит в Docker Desktop.
+- **Windows:** установите [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/). Для этого проекта используйте backend WSL 2; установите WSL 2, если установщик попросит. Запускайте команды Compose из PowerShell или терминала WSL в папке репозитория. Compose входит в Docker Desktop.
+- **Ubuntu:** установите Docker Engine и Compose plugin по [официальной инструкции Docker для Ubuntu](https://docs.docker.com/engine/install/ubuntu/). В списке пакетов следуйте инструкции для Compose plugin (`docker-compose-plugin`). Docker Desktop на сервере не требуется. После установки проверьте `sudo docker --version` и `sudo docker compose version`; если разрешили запуск Docker без `sudo`, команды можно выполнять без него. Доступ к группе `docker` фактически даёт права root — добавляйте пользователя в неё только если это приемлемо для вашей машины.
+
+Если Docker Engine/Daemon не запущен или команда `docker compose version` не работает, сначала устраните это по инструкции для своей ОС. Затем перейдите к [запуску проекта через Docker Compose](#запуск-через-docker-compose).
 
 ## Frontend
 
