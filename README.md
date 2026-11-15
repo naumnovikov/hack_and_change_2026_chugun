@@ -19,6 +19,8 @@
 - [Спецификация агента](./specs/agent.spec.md)
 - [Спецификация PDF-презентации по Jira-задачам](./specs/presentation.spec.md)
 - [QA-чек-лист PDF-сценария](./docs/PRESENTATION_QA_CHECKLIST.md)
+- [Демонстрационная презентация](./docs/coverage/presentation.pdf)
+- [Видеопрезентация работы программы](https://drive.google.com/file/d/1YOC0AVBIPG7bFC5pJpiIlHWA_Rv7CJxS/view?usp=sharing)
 - [AI: запуск, настройки и тесты](./ai-service/README.md)
 - [Локальное развёртывание, GPU и использование API-ключа](./ai-service/DEPLOYMENT.md)
 - [Контракт AI для Backend и результаты интеграции](./ai-service/BACKEND_HANDOFF.md)
