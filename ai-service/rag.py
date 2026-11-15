@@ -116,7 +116,7 @@ class RAG:
             for key, chunk in selected.items()
         ]
         conversation = {
-            "history": history[-2:],
+            "history": history[-2:] if is_follow_up else [],
             "question": question,
             "context": context,
         }

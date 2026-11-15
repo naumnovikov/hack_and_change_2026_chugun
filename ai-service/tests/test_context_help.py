@@ -44,6 +44,15 @@ def test_no_history_followup_asks_topic_without_model_or_database():
     repo.search.assert_not_called()
 
 
+def test_new_topic_does_not_send_previous_topic_to_generator(chunks):
+    provider = grounded_provider(chunks[0])
+    RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("Что такое SPT?", [
+        {"user": "Что такое TDR?", "assistant": "TDR — техническое ревью."}])
+    prompt = json.loads(provider.chat.call_args.args[0][1]["content"])
+    assert prompt["history"] == []
+    assert prompt["question"] == "Что такое SPT?"
+
+
 @pytest.mark.parametrize("question", ["Собери презу по моим таскам", "Как сделать презентацию?",
                                     "Можешь подготовить слайды?"])
 def test_presentation_help_never_claims_pdf_or_invokes_tools(question):
