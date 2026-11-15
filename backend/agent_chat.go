@@ -295,24 +295,31 @@ func (s PostgresStore) processAgent(ctx context.Context, session, requestID, mes
 
 	var history []agentConversationTurn
 	if !expired {
-		var previousTurnMessage string
-		var previousTurnResponse []byte
-		err = tx.QueryRowContext(ctx, `SELECT message,response FROM demo_chat_results
-			WHERE session_id=$1 ORDER BY created_at DESC LIMIT 1`, session).
-			Scan(&previousTurnMessage, &previousTurnResponse)
-		if err != nil && err != sql.ErrNoRows {
+		previousRows, queryErr := tx.QueryContext(ctx, `SELECT message,response FROM demo_chat_results
+			WHERE session_id=$1 ORDER BY created_at DESC,request_id DESC LIMIT 2`, session)
+		if queryErr != nil {
+			return ChatResponse{}, false, &agentStorageError{queryErr}
+		}
+		var previousPairs [][]agentConversationTurn
+		for previousRows.Next() {
+			var previousTurnMessage string
+			var previousTurnResponse []byte
+			if err = previousRows.Scan(&previousTurnMessage, &previousTurnResponse); err != nil {
+				previousRows.Close()
+				return ChatResponse{}, false, &agentStorageError{err}
+			}
+			var previousTurn ChatResponse
+			if json.Unmarshal(previousTurnResponse, &previousTurn) == nil && strings.TrimSpace(previousTurn.Reply) != "" && validConversationSources(previousTurn.Sources) {
+				previousPairs = append(previousPairs, []agentConversationTurn{{Role: "user", Content: previousTurnMessage}, {Role: "assistant", Content: previousTurn.Reply}})
+			}
+		}
+		err = previousRows.Err()
+		previousRows.Close()
+		if err != nil {
 			return ChatResponse{}, false, &agentStorageError{err}
 		}
-		if err == nil {
-			var previousTurn ChatResponse
-			if json.Unmarshal(previousTurnResponse, &previousTurn) == nil &&
-				strings.TrimSpace(previousTurn.Reply) != "" &&
-				validConversationSources(previousTurn.Sources) {
-				history = []agentConversationTurn{
-					{Role: "user", Content: previousTurnMessage},
-					{Role: "assistant", Content: previousTurn.Reply},
-				}
-			}
+		for i := len(previousPairs) - 1; i >= 0; i-- {
+			history = append(history, previousPairs[i]...)
 		}
 	}
 

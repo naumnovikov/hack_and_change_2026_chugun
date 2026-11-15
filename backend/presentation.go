@@ -23,7 +23,7 @@ const presentationSchema = `CREATE TABLE IF NOT EXISTS presentation_artifacts (
 );`
 
 // Anchored commands deliberately reject negations, questions and arbitrary identities.
-var explicitPresentation = regexp.MustCompile(`(?i)^(?:создай|сделай|сформируй|подготовь|собери)\s+(?:мне\s+)?(?:pdf[- ]?)?(?:демо-)?(?:черновик презентации|презентацию)(?:\s+по (?:моим )?(?:выполненным|завершённым|завершенным) задачам)?[.!]?$`)
+var explicitPresentation = regexp.MustCompile(`(?i)^(?:пожалуйста[, ]+)?(?:создай|сделай|сформируй|подготовь|собери|сгенерируй)\s+(?:мне\s+)?(?:pdf[- ]?|пдф[- ]?)?(?:демо-)?(?:черновик презентации|презентацию|слайды)(?:\s+по (?:(?:моим )?(?:(?:выполненным|завершённым|завершенным) )?задачам|итогам (?:моей )?работы))?(?:[, ]+пожалуйста)?[.!]?$`)
 
 type PresentationAttachment struct {
 	ID          string    `json:"id"`

@@ -14,6 +14,49 @@ import (
 	"testing"
 )
 
+func TestAgentTwoTurnHistoryIntegration(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL required")
+	}
+	store, err := openStore(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.DB.Close()
+	ctx := context.Background()
+	session := randomSession()
+	other := randomSession()
+	defer func() {
+		for _, s := range []string{session, other} {
+			store.DB.Exec("DELETE FROM demo_chat_results WHERE session_id=$1", s)
+			store.DB.Exec("DELETE FROM demo_chat_sessions WHERE id=$1", s)
+		}
+	}()
+	var seen []agentConversationTurn
+	step := func(_ context.Context, r agentStepRequest) (agentStepResponse, error) {
+		seen = r.History
+		return agentStepResponse{Kind: "answer", Reply: "answer " + r.Message}, nil
+	}
+	for i, message := range []string{"first", "second", "third", "fourth"} {
+		if _, _, err = store.processAgent(ctx, session, fmt.Sprintf("history-%08d", i), message, step); err != nil {
+			t.Fatal(err)
+		}
+		if i == 2 && (len(seen) != 4 || seen[0].Content != "first" || seen[2].Content != "second") {
+			t.Fatalf("two-turn chronological history missing: %+v", seen)
+		}
+		if i == 3 && (len(seen) != 4 || seen[0].Content != "second" || seen[2].Content != "third") {
+			t.Fatalf("history not bounded to two pairs: %+v", seen)
+		}
+	}
+	if _, _, err = store.processAgent(ctx, other, "other-history-001", "hello", step); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 0 {
+		t.Fatal("history leaked across sessions")
+	}
+}
+
 func TestAgentChatIntegration(t *testing.T) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {

@@ -107,13 +107,25 @@ class Presentation:
         self.provider = provider
 
     def draft(self, request: PresentationRequest):
+        # Keep the output small enough for local CPU inference. Deterministic
+        # template fields need no creative generation; grounding stays strict.
+        minimal = (
+            "\nВыбери минимальный ответ: summary — один пункт с полным summary первой задачи; "
+            "tasks — по одному KEY — SUMMARY для каждой задачи (не более 10 пунктов); "
+            "learning и next_steps — пустые bullets. Не добавляй пояснений или повторов. "
+            "Верни компактный JSON одной строкой, без отступов. У первых четырёх слайдов "
+            "не выводи необязательное is_proposal=false. "
+            "Если задач больше 10, не отбрасывай их: общие полные поля можно объединять "
+            "только по правилам выше."
+        )
+        schema = PresentationDraft.model_json_schema()
+        prompt = SYSTEM + minimal
+        if getattr(getattr(self.provider, "settings", None), "llm_provider", None) != "ollama":
+            prompt += "\nJSON Schema (follow exactly):\n" + json.dumps(schema, ensure_ascii=False)
         message = self.provider.chat([
-            {"role": "system", "content": (
-                f"{SYSTEM}\nJSON Schema (follow exactly):\n"
-                f"{json.dumps(PresentationDraft.model_json_schema(), ensure_ascii=False)}"
-            )},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": json.dumps(request.model_dump(), ensure_ascii=False)},
-        ], structured=PresentationDraft.model_json_schema(), max_tokens=4096)
+        ], structured=schema, max_tokens=4096)
         try:
             draft = PresentationDraft.model_validate_json(message.get("content", ""))
         except (ValidationError, TypeError) as exc:
