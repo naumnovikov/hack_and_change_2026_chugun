@@ -37,11 +37,11 @@ docker --version
 docker compose version
 ```
 
-- **macOS:** установите [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Выберите сборку для Apple silicon или Intel в соответствии с процессором Mac. Docker Compose входит в Docker Desktop.
+- **macOS:** установите и запустите [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Выберите сборку для Apple silicon или Intel в соответствии с процессором Mac. Перед запуском Compose дождитесь, пока Docker Desktop покажет, что Engine запущен; Docker Compose входит в Docker Desktop.
 - **Windows:** установите [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/). Для этого проекта используйте backend WSL 2; установите WSL 2, если установщик попросит. Запускайте команды Compose из PowerShell или терминала WSL в папке репозитория. Compose входит в Docker Desktop.
 - **Ubuntu:** установите Docker Engine и Compose plugin по [официальной инструкции Docker для Ubuntu](https://docs.docker.com/engine/install/ubuntu/). В списке пакетов следуйте инструкции для Compose plugin (`docker-compose-plugin`). Docker Desktop на сервере не требуется. После установки проверьте `sudo docker --version` и `sudo docker compose version`; если разрешили запуск Docker без `sudo`, команды можно выполнять без него. Доступ к группе `docker` фактически даёт права root — добавляйте пользователя в неё только если это приемлемо для вашей машины.
 
-Если Docker Engine/Daemon не запущен или команда `docker compose version` не работает, сначала устраните это по инструкции для своей ОС. Затем перейдите к [запуску проекта через Docker Compose](#запуск-через-docker-compose).
+Если команда сообщает `failed to connect to the docker API` или `Cannot connect to the Docker daemon`, значит Docker Engine не запущен или Docker CLI не может к нему подключиться. На macOS откройте Docker Desktop и дождитесь запуска Engine, затем повторите команду. Если Docker Engine/Daemon не запущен или команда `docker compose version` не работает, сначала устраните это по инструкции для своей ОС. Затем перейдите к [запуску проекта через Docker Compose](#запуск-через-docker-compose).
 
 ## Frontend
 
@@ -51,31 +51,36 @@ docker compose version
 
 ## Запуск через Docker Compose
 
-Из корня репозитория:
+Скрипт запуска проверяет Docker, пытается запустить Docker Desktop (macOS/Windows) или службу Docker (Ubuntu), создаёт `.env` из `.env.example` только если файла ещё нет, запускает PostgreSQL и Ollama, при необходимости скачивает модели, индексирует базу знаний, затем собирает и запускает приложение. Он не устанавливает Docker и не перезаписывает существующий `.env`.
 
-Если `.env` ещё нет, создайте его из `.env.example`. Существующий файл не перезаписывайте. Локальный `.env` не коммитится.
+Из корня репозитория запустите подходящий скрипт:
 
-Чтобы включить AI-agent tools в демо, задайте в `.env` случайное значение `AI_INTERNAL_TOKEN` длиной не менее 32 символов. Сгенерируйте его локально командой `openssl rand -hex 32` и вставьте в существующую строку `AI_INTERNAL_TOKEN=`. Backend и AI должны получить одно и то же значение; оно не передаётся в браузер и не должно попадать в Git. Пустое значение оставляет детерминированный demo-chat.
-
-Перед запуском выберите сервер Ollama. Два режима используют разные хранилища моделей; повторно скачивать уже имеющиеся веса без причины не нужно.
-
-**Ollama в Compose:** остановите нативный сервер на порту `11434`, если он запущен. Выполните:
+**macOS и Ubuntu:**
 
 ```bash
-docker compose config -q
-docker compose up -d postgres ollama
-docker compose exec ollama ollama list
+./scripts/start.sh
 ```
 
-В выбранном сервере нужны `qwen3.5:4b` и `embeddinggemma`. Если модели отсутствуют именно в этом хранилище, подготовьте их до индексации. Затем:
+**Windows PowerShell:**
 
-```bash
-docker compose run --build --rm --no-deps ai-service python -m ingest
-docker compose up -d --build
-docker compose ps
+```powershell
+.\scripts\start.ps1
 ```
 
-**Уже работающая Windows Ollama:** вместо отдельного контейнера модели можно использовать проверенный нативный сервер. В PowerShell задайте адрес только для текущего сеанса и запустите остальные сервисы без зависимости `ollama`:
+Если PowerShell блокирует запуск локального скрипта, разрешите его только для текущего окна PowerShell и повторите команду:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\start.ps1
+```
+
+Нужны Docker Desktop (macOS/Windows) или Docker Engine и Compose plugin (Ubuntu). На Ubuntu, если служба остановлена, скрипт может запросить пароль `sudo` для её запуска; если служба уже запущена, но у пользователя нет доступа, скрипт сообщит об этом. Скрипты запускают Ollama в Compose: перед запуском остановите нативную Ollama, если она уже использует порт `11434`. При первом запуске будут скачаны Docker-образы и модели `qwen3.5:4b` и `embeddinggemma`; загрузка может занять время и несколько гигабайт диска. По завершении откройте `http://localhost:3000`.
+
+Если `.env` создан автоматически, при необходимости включить AI-agent tools задайте в нём случайный `AI_INTERNAL_TOKEN` длиной не менее 32 символов. Сгенерируйте токен локально командой `openssl rand -hex 32`. Backend и AI должны получить одно и то же значение; оно не передаётся в браузер и не должно попадать в Git. Пустое значение оставляет детерминированный demo-chat.
+
+Если скрипт сообщает, что Docker Engine недоступен, запустите Docker Desktop и дождитесь готовности Engine (на Ubuntu убедитесь, что у пользователя есть доступ к Docker). После этого запустите скрипт ещё раз. При проблемах с сервисами смотрите `docker compose ps -a` и `docker compose logs --tail=80`.
+
+**Ручной запуск с уже работающей Windows Ollama:** вместо контейнера модели можно использовать нативный сервер. В PowerShell задайте адрес только для текущего сеанса и запустите остальные сервисы без зависимости `ollama`:
 
 ```powershell
 $env:LLM_BASE_URL = 'http://host.docker.internal:11434/v1'
