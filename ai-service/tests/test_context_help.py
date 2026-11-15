@@ -44,6 +44,15 @@ def test_no_history_followup_asks_topic_without_model_or_database():
     repo.search.assert_not_called()
 
 
+def test_new_topic_does_not_send_previous_topic_to_generator(chunks):
+    provider = grounded_provider(chunks[0])
+    RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("Что такое SPT?", [
+        {"user": "Что такое TDR?", "assistant": "TDR — техническое ревью."}])
+    prompt = json.loads(provider.chat.call_args.args[0][1]["content"])
+    assert prompt["history"] == []
+    assert prompt["question"] == "Что такое SPT?"
+
+
 @pytest.mark.parametrize("question", ["Собери презу по моим таскам", "Как сделать презентацию?",
                                     "Можешь подготовить слайды?"])
 def test_presentation_help_never_claims_pdf_or_invokes_tools(question):
@@ -83,3 +92,13 @@ def test_literal_escape_sequences_in_quote_are_still_rejected(chunks):
         "chunk_id": "C1", "quote": chunks[0].text.replace("\n", "\\n")}])
     with pytest.raises(AIError, match="не подтвердила"):
         RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("SPT")
+
+
+def test_generation_schema_pairs_only_real_quotes_with_their_source(chunks):
+    provider = grounded_provider(chunks[0])
+    RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("SPT")
+    options = provider.chat.call_args.kwargs["structured"]["$defs"]["Citation"]["anyOf"]
+    assert len(options) == 1
+    assert options[0]["properties"]["chunk_id"]["enum"] == ["C1"]
+    quotes = options[0]["properties"]["quote"]["enum"]
+    assert quotes and all(q in " ".join(chunks[0].text.split()) for q in quotes)
