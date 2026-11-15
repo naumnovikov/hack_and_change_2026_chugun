@@ -92,8 +92,10 @@ class RAG:
                     "sources": []}
 
         chunks = self.repository.search(
-            self.provider.embed([expand_query(search_question)])[0]
+            self.provider.embed([expand_query(search_question)])[0], search_question
         )
+        if not chunks and expand_query(search_question) != search_question:
+            chunks = self.repository.search(self.provider.embed([search_question])[0], search_question)
         chunks = [
             chunk for chunk in chunks
             if all(term_matches(term, chunk.text) for term in terms)

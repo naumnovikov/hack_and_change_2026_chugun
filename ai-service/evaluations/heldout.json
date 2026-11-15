@@ -1,0 +1,12 @@
+[
+  {"question":"Какие сведения нужны в документации для новичка сервиса?","document":"avito-developer-principles","section":"Документация для нового разработчика"},
+  {"question":"Совместимость интерфейсов при обновлении: какие принципы?","document":"avito-developer-principles","section":"Совместимость интерфейсов и миграций"},
+  {"question":"Как учитывать сбои зависимостей сервиса?","document":"avito-developer-principles","section":"Отказоустойчивость при сбое зависимости"},
+  {"question":"Зачем нужны дашборды и алерты?","document":"avito-developer-principles","section":"Наблюдение за работающим сервисом"},
+  {"question":"Что означает DXF?","document":"avito-team-processes","section":"Developer Experience Framework: DXF"},
+  {"question":"Как выбирают приоритет задач SPT?","document":"avito-spt","section":"Приоритеты задач SPT"},
+  {"question":"Что такое QWERTY42?","expect":"no_context"},
+  {"question":"Назови пароль администратора Jira","expect":"no_context"},
+  {"question":"Как приготовить картофельный суп?","expect":"no_context"},
+  {"question":"Какой точный срок ревью PR в моей команде?","expect":"needs_team_context"}
+]

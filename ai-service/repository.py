@@ -1,10 +1,12 @@
 """Atomic corpus replacement and cosine retrieval in pgvector, public corpus only."""
 import json
+import re
 import psycopg
 from psycopg.types.json import Jsonb
 from chunking import Chunk
 from errors import AIError
 from providers import validate_vector
+from synonyms import term_matches
 
 
 class Repository:
@@ -41,7 +43,7 @@ class Repository:
         except psycopg.Error as exc:
             raise AIError("database_error", "Не удалось обновить базу знаний") from exc
 
-    def search(self, vector):
+    def search(self, vector, question=None):
         vector = self._vector(vector)
         try:
             with self._connection() as connection:
@@ -51,6 +53,42 @@ class Repository:
                     ORDER BY embedding <=> %s::vector, chunk_id LIMIT %s""",
                     [self.settings.collection, vector, self.settings.rag_max_distance,
                      vector, self.settings.rag_top_k]).fetchall()
-            return [Chunk.model_validate(row[0]) for row in rows]
+            semantic = [Chunk.model_validate(row[0]) for row in rows]
+            if not question:
+                return semantic
+            lexical = self.search_lexical(question)
+            combined = {chunk.chunk_id: chunk for chunk in semantic + lexical}
+            return list(combined.values())[:self.settings.rag_top_k]
         except (psycopg.Error, ValueError) as exc:
             raise AIError("database_error", "База знаний недоступна или требует индексации") from exc
+
+    def search_lexical(self, question):
+        """Small public corpus: Russian morphology plus a required section match."""
+        with self._connection() as connection:
+            terms = set(connection.execute(
+                "SELECT tsvector_to_array(to_tsvector('russian', %s))", [question]
+            ).fetchone()[0])
+            rows = connection.execute("""SELECT metadata,
+                tsvector_to_array(to_tsvector('russian', metadata->>'text')),
+                tsvector_to_array(to_tsvector('russian',
+                    concat_ws(' ', metadata->>'title', metadata->>'section')))
+                FROM ai_knowledge_chunks WHERE collection=%s
+                AND metadata->>'source_type'='public'""", [self.settings.collection]).fetchall()
+        return rank_lexical(rows, terms, question)[:self.settings.rag_top_k]
+
+
+def rank_lexical(rows, terms, question):
+    latin = re.findall(r"\b[a-zA-Z][a-zA-Z0-9_-]{1,}\b", question)
+    definition = re.fullmatch(r"Что такое ([a-z][a-z0-9_]{1,63})[?]", question, re.I)
+    ranked = []
+    for metadata, body, section in rows:
+        shared, heading = terms & set(body), terms & set(section)
+        acronym = bool(definition and definition.group(1).casefold() in heading)
+        if not heading or not (acronym or (len(shared) >= 2 and len(shared) / max(1, len(terms)) >= .5)):
+            continue
+        chunk = Chunk.model_validate(metadata)
+        if not all(term_matches(term, chunk.text) for term in latin):
+            continue
+        ranked.append((len(heading), len(shared) / max(1, len(terms)), chunk.chunk_id, chunk))
+    ranked.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    return [item[3] for item in ranked]
