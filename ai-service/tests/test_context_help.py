@@ -102,3 +102,22 @@ def test_generation_schema_pairs_only_real_quotes_with_their_source(chunks):
     assert options[0]["properties"]["chunk_id"]["enum"] == ["C1"]
     quotes = options[0]["properties"]["quote"]["enum"]
     assert quotes and all(q in " ".join(chunks[0].text.split()) for q in quotes)
+
+
+def test_compatible_api_gets_exact_citation_contract_in_prompt(chunks):
+    provider = grounded_provider(chunks[0])
+    provider.settings.llm_provider = "openai"
+    RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("SPT")
+    system = provider.chat.call_args.args[0][0]["content"]
+    schema = json.loads(system.split("JSON Schema (follow exactly):\n", 1)[1])
+    citation = schema["$defs"]["Citation"]["anyOf"][0]
+    assert citation["required"] == ["chunk_id", "quote"]
+    assert citation["properties"]["chunk_id"]["enum"] == ["C1"]
+
+
+def test_gemini_text_instead_of_quote_is_rejected(chunks):
+    provider = grounded_provider(chunks[0], citations=[{
+        "chunk_id": "C1", "text": chunks[0].text}])
+    with pytest.raises(AIError) as raised:
+        RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("SPT")
+    assert raised.value.code == "invalid_model_response"

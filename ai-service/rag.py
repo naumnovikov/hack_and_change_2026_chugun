@@ -134,9 +134,15 @@ class RAG:
                      or [item["text"]]}}}
             for item in context
         ]}
+        system = SYSTEM
+        # Some compatible APIs (including Google's json_object mode) enforce
+        # valid JSON but not this dynamic schema. Include the contract in text
+        # as well; parsing and source validation remain mandatory.
+        if self.provider.settings.llm_provider == "openai":
+            system += "\nJSON Schema (follow exactly):\n" + json.dumps(schema, ensure_ascii=False)
         message = self.provider.chat(
             [
-                {"role": "system", "content": SYSTEM},
+                {"role": "system", "content": system},
                 {
                     "role": "user",
                     "content": json.dumps(conversation, ensure_ascii=False),
