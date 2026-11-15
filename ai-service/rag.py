@@ -36,11 +36,15 @@ SYSTEM = """Ты AI-buddy стажёра. Отвечай по-русски то�
 Если контекст не отвечает на вопрос, верни {"answer":"","citations":[]}.
 Иначе верни JSON {"answer":"краткое объяснение и следующий шаг",
 "citations":[{"chunk_id":"ID фрагмента","quote":"точная цитата из фрагмента"}]}.
+Для quote скопируй одно содержательное предложение из text дословно.
+Не пересказывай цитату, не добавляй многоточия или буквальные последовательности \\n.
 Каждый факт должен опираться на контекст. Не раскрывай рассуждения модели."""
 
 FOLLOW_UP = re.compile(
     r"\b(это|этим|этого|дальше|подроб\w*|куда|ее|её|его|ему|него|нему|ней|ним|них)\b"
-    r"|^\s*(?:а\s+)?как\s+(?:таск\w*|задач\w*|фич\w*)\b",
+    r"|^\s*(?:а\s+)?как\s+(?:таск\w*|задач\w*|фич\w*)\b"
+    r"|^\s*(?:а\s+)?(?:какие\s+(?:типы|виды|этапы)|приведи\s+пример|"
+    r"объясни\s+(?:проще|иначе)|попроще|короче|зачем|почему)\b",
     re.I,
 )
 
@@ -63,26 +67,33 @@ class RAG:
 
     def answer(self, question, history=None):
         history = history or []
+        terms = re.findall(r"\b[a-zA-Z][a-zA-Z0-9_-]{1,}\b", question)
+        canonical = definition_query(re.sub(r"^(?:а|теперь)\s+", "", question.strip(), flags=re.I))
         is_follow_up = (
             bool(history)
+            and not terms
             and len(question.split()) <= 12
             and FOLLOW_UP.search(question) is not None
         )
 
         if is_follow_up:
-            previous = history[-1]
-            search_question = (
-                f"Предыдущий вопрос: {previous['user']}\n"
-                f"Предыдущий ответ: {previous['assistant']}\n"
-                f"Уточнение: {question}"
-            )
+            search_question = "\n".join(
+                f"Предыдущий вопрос: {turn['user']}\nПредыдущий ответ: {turn['assistant']}"
+                for turn in history[-2:]
+            ) + f"\nУточнение: {question}"
         else:
-            search_question = definition_query(question) or question
+            search_question = canonical or question
+
+        if not history and re.fullmatch(
+            r"(?:а\s+)?(?:подробнее|попроще|короче|объясни\s+проще|какие\s+(?:типы|виды|этапы)|"
+            r"приведи\s+пример)[?.!]?", question.strip(), re.I
+        ):
+            return {"reply": "Уточни, о каком термине или процессе идёт речь — например, SPT или TDR.",
+                    "sources": []}
 
         chunks = self.repository.search(
             self.provider.embed([expand_query(search_question)])[0]
         )
-        terms = re.findall(r"\b[a-zA-Z][a-zA-Z0-9_-]{1,}\b", question)
         chunks = [
             chunk for chunk in chunks
             if all(term_matches(term, chunk.text) for term in terms)
@@ -99,7 +110,9 @@ class RAG:
 
         selected = {f"C{index + 1}": chunk for index, chunk in enumerate(chunks)}
         context = [
-            {"chunk_id": key, "text": chunk.text}
+            # The validator already normalizes whitespace. Present the same form
+            # to the model so it need not copy JSON-escaped line breaks.
+            {"chunk_id": key, "text": " ".join(chunk.text.split())}
             for key, chunk in selected.items()
         ]
         conversation = {

@@ -126,6 +126,7 @@ EMPLOYEE_LOOKUP = re.compile(
     r"(?:владельца|ответственного)\s+(?:сервиса\s+)?[a-z][a-z0-9_-]*"
     r"(?:\s+для\s+ревью)?[.!]?", re.I)
 ACCESS_COMMAND = re.compile(r"(?:создай|оформи|запроси)\s+.*(?:доступ|заявк)", re.I)
+PRESENTATION_HELP = re.compile(r"\b(?:презентаци\w*|преза|презу|презой|слайды|presentation)\b", re.I)
 
 
 def answer(reply, state="answer"):
@@ -138,10 +139,11 @@ class Agent:
 
     def _rag_answer(self, request):
         history = []
-        if (len(request.history) >= 2
-                and request.history[-2].role == "user"
-                and request.history[-1].role == "assistant"):
-            history = [{"user": request.history[-2].content, "assistant": request.history[-1].content}]
+        for index in range(0, len(request.history) - 1):
+            if (request.history[index].role == "user"
+                    and request.history[index + 1].role == "assistant"):
+                history.append({"user": request.history[index].content,
+                                "assistant": request.history[index + 1].content})
         result = (
             self.rag.answer(request.message, history)
             if history
@@ -173,6 +175,14 @@ class Agent:
                           "Подготовь текст запроса на ревью и подтверди получателя и полный текст.", "draft")
         if request.tool_steps >= 3:
             return answer("Достигнут лимит трёх действий. Уточни следующий шаг с наставником.", "limit")
+        if (PRESENTATION_HELP.search(request.message) and not request.explicit_access_request
+                and request.confirmed_message is None):
+            return answer(
+                "В демо можно создать PDF-черновик из пяти слайдов по твоим завершённым "
+                "задачам синтетической Jira. Чтобы запустить создание, напиши «Создай презентацию». "
+                "Backend выберет доступные задачи; произвольная тема или неподтверждённые достижения "
+                "не добавляются. Сейчас это объяснение возможности: PDF ещё не создан.",
+                "clarification")
         if (not request.explicit_access_request
                 and re.search(r"(?i)\bсоздай\s+(?:мне\s+)?заявку\b", request.message)):
             return answer("Для создания заявки на доступ сформулируй явный запрос и укажи сервис.", "clarification")
