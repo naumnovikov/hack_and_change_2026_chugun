@@ -1,5 +1,7 @@
 # AI-buddy: Python AI service
 
+Подробно: [локальное развёртывание, GPU, API-ключ и контекст диалога](DEPLOYMENT.md).
+
 Python отвечает за RAG, генерацию и предложения tool calls. При настроенном
 `AI_INTERNAL_TOKEN` Go формирует demo-контекст, проверяет и исполняет tools,
 сохраняет подтверждения/результаты и защищает повторы. Настоящей IAM и публичного
@@ -40,8 +42,7 @@ docker compose run --build --rm --no-deps ai-service python -m ingest
 docker compose up -d --build ai-service
 ```
 
-Нативная и контейнерная Ollama имеют разные хранилища. Проверенные Windows-модели
-лежат в .ollama/models, не в Docker volume. Выберите один сервер и задайте
+Нативная и контейнерная Ollama имеют разные хранилища. Выберите один сервер и задайте
 доступный AI-сервису LLM_BASE_URL; localhost в контейнере — сам контейнер.
 Qwen повторно не скачивать без причины. Не удалять volumes для переиндексации.
 
@@ -134,7 +135,8 @@ AI не определяет права или статус задач. Допо
 
 Ответ — `slides` из пяти слайдов: `title`, `summary`, `tasks`, `learning`,
 `next_steps`, в этом порядке. Точные схемы и лимиты — в `openapi.yaml`.
-PDF, download URL и ID вложений AI не создаёт. Endpoint пока не подключён к Go.
+PDF, download URL и ID вложений AI не создаёт. Endpoint подключён к Go;
+явная команда презентации в Go запускает генерацию JSON и сборку PDF.
 Численные лимиты и консервативный режим согласованы с Backend 13.11.2026.
 Точные заголовки и предложение next_steps зафиксированы в BACKEND_HANDOFF.md.
 
