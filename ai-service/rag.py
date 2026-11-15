@@ -120,6 +120,18 @@ class RAG:
             "question": question,
             "context": context,
         }
+        schema = GroundedAnswer.model_json_schema()
+        # Constrain quote *and* source ID together. The model selects actual
+        # source sentences rather than paraphrasing an exact-quote field.
+        schema["$defs"]["Citation"] = {"anyOf": [
+            {"type": "object", "additionalProperties": False,
+             "required": ["chunk_id", "quote"], "properties": {
+                 "chunk_id": {"type": "string", "enum": [item["chunk_id"]]},
+                 "quote": {"type": "string", "enum": [sentence for sentence in
+                     re.split(r"(?<=[.!?])\s+", item["text"]) if len(sentence) >= 8]
+                     or [item["text"]]}}}
+            for item in context
+        ]}
         message = self.provider.chat(
             [
                 {"role": "system", "content": SYSTEM},
@@ -128,7 +140,7 @@ class RAG:
                     "content": json.dumps(conversation, ensure_ascii=False),
                 },
             ],
-            structured=GroundedAnswer.model_json_schema(),
+            structured=schema,
         )
         try:
             answer = GroundedAnswer.model_validate_json(message.get("content", ""))
