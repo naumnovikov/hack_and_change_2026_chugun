@@ -5,6 +5,7 @@ import pytest
 
 from agent import Agent
 from rag import RAG
+from errors import AIError
 from test_ai import agent_request, grounded_provider, chunks
 
 
@@ -63,3 +64,22 @@ def test_agent_passes_both_trusted_pairs():
         ("user", "подробнее"), ("assistant", "Описание")]]
     Agent(Mock(), rag).step(agent_request(message="попроще", explicit_access_request=False, history=turns))
     assert len(rag.answer.call_args.args[1]) == 2
+
+
+def test_rag_presents_whitespace_normalized_source_without_escape_ambiguity(chunks):
+    provider = grounded_provider(chunks[0])
+    def respond(messages, **kwargs):
+        text = json.loads(messages[1]["content"])["context"][0]["text"]
+        assert text == " ".join(chunks[0].text.split())
+        assert "\n" not in text and "\\n" not in text
+        return {"content": json.dumps({"answer": "Ответ по источнику", "citations": [
+            {"chunk_id": "C1", "quote": text}]})}
+    provider.chat.side_effect = respond
+    assert RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("SPT")["sources"]
+
+
+def test_literal_escape_sequences_in_quote_are_still_rejected(chunks):
+    provider = grounded_provider(chunks[0], citations=[{
+        "chunk_id": "C1", "quote": chunks[0].text.replace("\n", "\\n")}])
+    with pytest.raises(AIError, match="не подтвердила"):
+        RAG(provider, Mock(search=Mock(return_value=chunks[:1]))).answer("SPT")

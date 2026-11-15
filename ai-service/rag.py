@@ -36,6 +36,8 @@ SYSTEM = """Ты AI-buddy стажёра. Отвечай по-русски то�
 Если контекст не отвечает на вопрос, верни {"answer":"","citations":[]}.
 Иначе верни JSON {"answer":"краткое объяснение и следующий шаг",
 "citations":[{"chunk_id":"ID фрагмента","quote":"точная цитата из фрагмента"}]}.
+Для quote скопируй одно содержательное предложение из text дословно.
+Не пересказывай цитату, не добавляй многоточия или буквальные последовательности \\n.
 Каждый факт должен опираться на контекст. Не раскрывай рассуждения модели."""
 
 FOLLOW_UP = re.compile(
@@ -108,7 +110,9 @@ class RAG:
 
         selected = {f"C{index + 1}": chunk for index, chunk in enumerate(chunks)}
         context = [
-            {"chunk_id": key, "text": chunk.text}
+            # The validator already normalizes whitespace. Present the same form
+            # to the model so it need not copy JSON-escaped line breaks.
+            {"chunk_id": key, "text": " ".join(chunk.text.split())}
             for key, chunk in selected.items()
         ]
         conversation = {
