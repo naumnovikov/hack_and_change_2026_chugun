@@ -1,0 +1,22 @@
+[
+  {"question":"Что такое SPT?","document":"avito-spt","section":"Значение термина"},
+  {"question":"Какие приоритеты у задач SPT?","document":"avito-spt","section":"Приоритеты задач SPT"},
+  {"question":"От чего зависит приоритет ошибки SPT?","document":"avito-spt","section":"Приоритеты задач SPT"},
+  {"question":"Как обращение HelpDesk становится задачей SPT?","document":"avito-spt","section":"От обращения HelpDesk до задачи SPT"},
+  {"question":"Что должна сделать ответственная команда с SPT-задачей?","document":"avito-spt","section":"Действия ответственной команды"},
+  {"question":"Когда можно закрыть SPT-задачу?","document":"avito-spt","section":"Завершение работы"},
+  {"question":"Что означает TDR?","document":"avito-tdr","section":"Значение термина"},
+  {"question":"Что включить в дизайн-документ TDR?","document":"avito-tdr","section":"Содержание дизайн-документа TDR"},
+  {"question":"Какие вопросы нагрузки и безопасности рассматривают в TDR?","document":"avito-tdr","section":"Нагрузка, ресурсы и безопасность TDR"},
+  {"question":"Когда после TDR можно начинать реализацию?","document":"avito-tdr","section":"Порядок работы"},
+  {"question":"Какая документация помогает новичку освоить сервис?","document":"avito-developer-principles","section":"Документация для нового разработчика"},
+  {"question":"Как сохранить совместимость интерфейсов?","document":"avito-developer-principles","section":"Совместимость интерфейсов и миграций"},
+  {"question":"Что учитывать при миграции базы со старой и новой версиями сервиса?","document":"avito-developer-principles","section":"Совместимость интерфейсов и миграций"},
+  {"question":"Что делать при сбое зависимого сервиса?","document":"avito-developer-principles","section":"Отказоустойчивость при сбое зависимости"},
+  {"question":"Зачем разработчику дашборды и алерты сервиса?","document":"avito-developer-principles","section":"Наблюдение за работающим сервисом"},
+  {"question":"Что такое DX?","document":"avito-team-processes","section":"Developer Experience: DX"},
+  {"question":"Что такое DXF?","document":"avito-team-processes","section":"Developer Experience Framework: DXF"},
+  {"question":"Что такое ZBP?","expect":"no_context"},
+  {"question":"Что означает XYZZY?","expect":"no_context"},
+  {"question":"Какой точный срок ревью PR в моей команде?","expect":"needs_team_context"}
+]
